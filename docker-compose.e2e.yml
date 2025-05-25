@@ -14,6 +14,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    depends_on:
+      create_bucket_and_user:
+        condition: service_completed_successfully
     ports:
       - 3000:3000
     environment:
