@@ -20,6 +20,7 @@
     "jsr:@std/path@^1.0.8": "1.0.9",
     "jsr:@std/path@^1.0.9": "1.0.9",
     "jsr:@std/testing@^1.0.11": "1.0.11",
+    "npm:@aws-sdk/client-s3@*": "3.779.0",
     "npm:@aws-sdk/client-s3@^3.779.0": "3.779.0",
     "npm:@aws-sdk/s3-request-presigner@^3.779.0": "3.779.0",
     "npm:hono@^4.7.5": "4.7.5"
@@ -635,9 +636,6 @@
         "@smithy/node-config-provider",
         "@smithy/types",
         "tslib"
-      ],
-      "optionalPeers": [
-        "aws-crt@>=1.0.0"
       ]
     },
     "@aws-sdk/xml-builder@3.775.0": {

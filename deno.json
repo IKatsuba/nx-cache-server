@@ -15,6 +15,7 @@
     "start": "deno run --allow-env --allow-net --allow-sys --allow-read --env-file=.env src/index.ts",
     "dev": "deno run --watch --allow-env --allow-net --allow-sys --allow-read --env-file=.env.local src/index.ts",
     "test": "deno test --allow-env --allow-net --allow-sys --allow-read --env-file=.env.local src/**/*.test.ts",
-    "e2e": "deno test --allow-env --allow-net --allow-sys --allow-read --allow-write --allow-run --env-file=.env.local e2e/**/*.test.ts"
+    "e2e": "deno test --allow-env --allow-net --allow-sys --allow-read --allow-write --allow-run --env-file=.env.local e2e/**/*.test.ts",
+    "wait-for-bucket": "deno run --allow-net --allow-env --env-file=.env.local --allow-sys --allow-read scripts/wait-for-bucket.ts"
   }
 }

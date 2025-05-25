@@ -40,6 +40,9 @@ jobs:
         run: |
           docker compose -f docker-compose.e2e.yml up -d
           deno --no-lock -A npm:wait-on http://localhost:9000/minio/health/live
+      - name: Wait for MinIO bucket
+        run: |
+          deno task wait-for-bucket
       - name: Run tests
         run: |
           deno task test
