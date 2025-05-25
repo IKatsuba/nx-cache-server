@@ -26,7 +26,7 @@ services:
     environment:
       MINIO_ACCESS_KEY: minio
       MINIO_SECRET_KEY: minio123
-  
+
   cache_server:
     build:
       context: .

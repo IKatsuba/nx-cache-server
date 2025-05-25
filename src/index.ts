@@ -63,7 +63,6 @@ const auth = () =>
     await next();
   });
 
-app.use(auth());
 app.use(logger());
 
 app.get('/health', () => {
@@ -73,7 +72,7 @@ app.get('/health', () => {
   });
 });
 
-app.put('/v1/cache/:hash', async (c) => {
+app.put('/v1/cache/:hash', auth(), async (c) => {
   try {
     const hash = c.req.param('hash');
 
@@ -124,7 +123,7 @@ app.put('/v1/cache/:hash', async (c) => {
   }
 });
 
-app.get('/v1/cache/:hash', async (c) => {
+app.get('/v1/cache/:hash', auth(), async (c) => {
   try {
     const hash = c.req.param('hash');
 
