@@ -92,7 +92,8 @@ deno task e2e
 
 > **Note:** The tests assume that the MinIO server is running and that the
 > `nx-cloud` bucket exists. Be sure to run
-> `docker compose -f docker-compose.e2e.yml up -d` before running the tests.
+> `docker compose -f docker-compose.yml up s3 create_bucket_and_user -d` before
+> running the tests.
 
 ## Usage with Nx
 

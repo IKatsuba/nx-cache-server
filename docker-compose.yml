@@ -1,6 +1,6 @@
 services:
   s3:
-    image: minio/minio
+    image: minio/minio:RELEASE.2025-04-08T15-41-24Z
     entrypoint: sh -c "minio server /data --console-address ':9001'"
     environment:
       MINIO_ROOT_USER: minio
@@ -18,7 +18,7 @@ services:
       retries: 5
       start_period: 5s
   create_bucket_and_user:
-    image: minio/mc
+    image: minio/mc:RELEASE.2025-04-08T15-39-49Z
     entrypoint: sh -c "mc config host add minio http://s3:9000 minio minio123 && mc mb minio/nx-cloud && mc anonymous set public minio/nx-cloud"
     depends_on:
       s3:
@@ -26,6 +26,20 @@ services:
     environment:
       MINIO_ACCESS_KEY: minio
       MINIO_SECRET_KEY: minio123
+  
+  cache_server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      create_bucket_and_user:
+        condition: service_completed_successfully
+    ports:
+      - 3000:3000
+    environment:
+      - S3_ENDPOINT_URL=http://s3:9000
+    env_file:
+      - .env.local
 
 volumes:
   s3_data:
