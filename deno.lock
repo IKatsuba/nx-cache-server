@@ -23,6 +23,7 @@
     "npm:@aws-sdk/client-s3@*": "3.779.0",
     "npm:@aws-sdk/client-s3@^3.779.0": "3.779.0",
     "npm:@aws-sdk/s3-request-presigner@^3.779.0": "3.779.0",
+    "npm:deno@^2.7.9": "2.7.9",
     "npm:hono@^4.7.5": "4.7.5"
   },
   "jsr": {
@@ -645,6 +646,36 @@
         "tslib"
       ]
     },
+    "@deno/darwin-arm64@2.7.9": {
+      "integrity": "sha512-9EslB4tupeeXTNPne9Hsyrc5fFfOKp9nZmMBLcZMotLd5/u1siBuczNLKJXab+v/Vn4ZuAgpyppaox0nxej6Wg==",
+      "os": ["darwin"],
+      "cpu": ["arm64"]
+    },
+    "@deno/darwin-x64@2.7.9": {
+      "integrity": "sha512-Dr9pkY84TRHwVh5Q/X2ZhXx1LBdfSKPJ4eSYSp93dSWq6x62v5vMobmcWep1j4fiEkw57OgZapGYX8JQHJj3bA==",
+      "os": ["darwin"],
+      "cpu": ["x64"]
+    },
+    "@deno/linux-arm64-glibc@2.7.9": {
+      "integrity": "sha512-EXciAZlRiuA6j+wIEvC8+NcZD4eLTLeDHY/9S83S+TkUHRpZcqwyCY0i9BcR07mZFgZRSVaRNpL7DkGOxAxguw==",
+      "os": ["linux"],
+      "cpu": ["arm64"]
+    },
+    "@deno/linux-x64-glibc@2.7.9": {
+      "integrity": "sha512-ErOk3RucGPnDpoXnLrYrnhYOiMmZ7qhogDTolJZX9Nhhch96R9OLsiSlb7Tp+L9i541pdfPVcBv31cUv8hSqKA==",
+      "os": ["linux"],
+      "cpu": ["x64"]
+    },
+    "@deno/win32-arm64@2.7.9": {
+      "integrity": "sha512-b/A7/+yQPb8F2JGthm/WYsPxXt5Z12SneHC+JJFlW8XoC2NzXwK+UAR7s8TICHSDqGtzywYhN1edZe2gY9O0hQ==",
+      "os": ["win32"],
+      "cpu": ["arm64"]
+    },
+    "@deno/win32-x64@2.7.9": {
+      "integrity": "sha512-bUr8A/WaB9V+uX2JaUliU8E2ch0v7XLycTP4EbXUtipI5+pymwXgsyvWYyRHmWxUyjArdq6vW0juh0KxJ8u7YQ==",
+      "os": ["win32"],
+      "cpu": ["x64"]
+    },
     "@smithy/abort-controller@4.0.2": {
       "integrity": "sha512-Sl/78VDtgqKxN2+1qduaVE140XF+Xg+TafkncspwM4jFP/LHr76ZHmIY/y3V1M0mMLNk+Je6IGbzxy23RSToMw==",
       "dependencies": [
@@ -1085,6 +1116,19 @@
     "bowser@2.11.0": {
       "integrity": "sha512-AlcaJBi/pqqJBIQ8U9Mcpc9i8Aqxn88Skv5d+xBX006BY5u8N3mGLHa5Lgppa7L/HfwgwLgZ6NYs+Ag6uUmJRA=="
     },
+    "deno@2.7.9": {
+      "integrity": "sha512-sEQ/oEp8mOPAhplbR6tR/T8moNMlOtWhMQFS05wYpMs2+UQVI3E30104tF17jWW4duTysKk47mT4+tV7fiaCvw==",
+      "optionalDependencies": [
+        "@deno/darwin-arm64",
+        "@deno/darwin-x64",
+        "@deno/linux-arm64-glibc",
+        "@deno/linux-x64-glibc",
+        "@deno/win32-arm64",
+        "@deno/win32-x64"
+      ],
+      "scripts": true,
+      "bin": true
+    },
     "fast-xml-parser@4.4.1": {
       "integrity": "sha512-xkjOecfnKGkSsOwtZ5Pz7Us/T6mrbPQrq0nh+aCO5V9nk5NLWmasAHumTKjiPJPWANe+kAZ84Jc8ooJkzZ88Sw==",
       "dependencies": [
@@ -1115,6 +1159,11 @@
       "npm:@aws-sdk/client-s3@^3.779.0",
       "npm:@aws-sdk/s3-request-presigner@^3.779.0",
       "npm:hono@^4.7.5"
-    ]
+    ],
+    "packageJson": {
+      "dependencies": [
+        "npm:deno@^2.7.9"
+      ]
+    }
   }
 }
