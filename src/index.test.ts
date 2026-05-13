@@ -48,6 +48,25 @@ describe('Cache server routes', () => {
 
   it('PUT /v1/cache/{hash} - Success', async () => {
     const hash = crypto.randomUUID();
+    const payload = Deno.readFileSync('./src/index.ts');
+
+    const response = await makeRequest(
+      'PUT',
+      `/v1/cache/${hash}`,
+      {
+        'Content-Type': 'application/octet-stream',
+        'Content-Length': String(payload.byteLength),
+      },
+      payload,
+    );
+
+    assertEquals(response.status, 200);
+    const body = await response.text();
+    assertEquals(body, 'Successfully uploaded');
+  });
+
+  it('PUT /v1/cache/{hash} - Missing Content-Length', async () => {
+    const hash = crypto.randomUUID();
 
     const response = await makeRequest(
       'PUT',
@@ -56,9 +75,9 @@ describe('Cache server routes', () => {
       Deno.readFileSync('./src/index.ts'),
     );
 
-    assertEquals(response.status, 202);
+    assertEquals(response.status, 411);
     const body = await response.text();
-    assertEquals(body, 'Successfully uploaded');
+    assertEquals(body, 'Content-Length header is required');
   });
 
   it('PUT /v1/cache/{hash} - Unauthorized', async () => {
@@ -74,9 +93,9 @@ describe('Cache server routes', () => {
       Deno.readFileSync('./src/index.ts'),
     );
 
-    assertEquals(response.status, 403);
+    assertEquals(response.status, 401);
     const body = await response.text();
-    assertEquals(body, 'Access forbidden');
+    assertEquals(body, 'Missing or invalid authentication token');
   });
 
   it('GET /v1/cache/{hash} - Success', async () => {
@@ -104,9 +123,9 @@ describe('Cache server routes', () => {
       { 'Authorization': 'Bearer wrong-token' },
     );
 
-    assertEquals(response.status, 403);
+    assertEquals(response.status, 401);
     const body = await response.text();
-    assertEquals(body, 'Access forbidden');
+    assertEquals(body, 'Missing or invalid authentication token');
   });
 
   it('GET /v1/cache/{hash} - Not Found', async () => {
