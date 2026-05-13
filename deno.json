@@ -10,7 +10,11 @@
     "hono": "npm:hono@^4.7.5"
   },
   "fmt": {
-    "singleQuote": true
+    "singleQuote": true,
+    "exclude": ["charts/"]
+  },
+  "lint": {
+    "exclude": ["charts/"]
   },
   "tasks": {
     "start": "deno run --allow-env --allow-net --allow-sys --allow-read --env-file=.env src/index.ts",
