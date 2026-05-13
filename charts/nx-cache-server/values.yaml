@@ -1,0 +1,69 @@
+image:
+  repository: ghcr.io/ikatsuba/nx-cache-server
+  # Defaults to .Chart.AppVersion if empty.
+  tag: ""
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+replicaCount: 1
+
+service:
+  type: ClusterIP
+  port: 3000
+
+resources: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+podAnnotations: {}
+podLabels: {}
+podSecurityContext: {}
+securityContext: {}
+
+serviceAccount:
+  create: true
+  name: ""
+  # Annotations to add to the ServiceAccount. Use this for IRSA
+  # (eks.amazonaws.com/role-arn) or GKE Workload Identity
+  # (iam.gke.io/gcp-service-account) to avoid static AWS keys.
+  annotations: {}
+
+probes:
+  liveness:
+    enabled: true
+    path: /health
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  readiness:
+    enabled: true
+    path: /health
+    initialDelaySeconds: 2
+    periodSeconds: 5
+
+# Non-secret configuration mapped to env vars in the container.
+config:
+  port: 3000
+  awsRegion: us-east-1
+  s3:
+    bucketName: nx-cloud
+    # S3 endpoint URL — e.g. https://s3.amazonaws.com or a custom endpoint.
+    endpointUrl: ""
+
+# Secret strategy: either supply the three values below to have the chart
+# create a Secret, or set existingSecret to the name of an externally managed
+# Secret. The external Secret must contain keys:
+#   - nx-cache-access-token
+#   - aws-access-key-id
+#   - aws-secret-access-key
+secrets:
+  existingSecret: ""
+  nxCacheAccessToken: ""
+  awsAccessKeyId: ""
+  awsSecretAccessKey: ""
+
+# Extra environment variables appended to the container. Use either `value`
+# or `valueFrom` per Kubernetes env semantics.
+extraEnv: []

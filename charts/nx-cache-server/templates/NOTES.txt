@@ -1,0 +1,21 @@
+{{ .Chart.Name }} {{ .Chart.AppVersion }} has been installed as release {{ .Release.Name }} in namespace {{ .Release.Namespace }}.
+
+Service: {{ include "nx-cache-server.fullname" . }} ({{ .Values.service.type }}) on port {{ .Values.service.port }}
+
+To reach the cache server from your machine:
+
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "nx-cache-server.fullname" . }} {{ .Values.service.port }}:{{ .Values.service.port }}
+  curl -fsS http://localhost:{{ .Values.service.port }}/health
+
+Point Nx at it via nx.json:
+
+  "tasksRunnerOptions": {
+    "default": {
+      "options": {
+        "remoteCache": {
+          "url": "http://<your-ingress-or-service>:{{ .Values.service.port }}/v1/cache",
+          "accessToken": "<NX_CACHE_ACCESS_TOKEN>"
+        }
+      }
+    }
+  }
