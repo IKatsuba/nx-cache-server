@@ -6,6 +6,7 @@
     "@std/assert": "jsr:@std/assert@^1.0.13",
     "@std/path": "jsr:@std/path@^1.0.9",
     "@std/testing": "jsr:@std/testing@^1.0.11",
+    "emulate": "npm:emulate@^0.5.0",
     "hono": "npm:hono@^4.7.5"
   },
   "fmt": {
@@ -14,8 +15,8 @@
   "tasks": {
     "start": "deno run --allow-env --allow-net --allow-sys --allow-read --env-file=.env src/index.ts",
     "dev": "deno run --watch --allow-env --allow-net --allow-sys --allow-read --env-file=.env.local src/index.ts",
+    "emulate": "deno run --allow-env --allow-net --allow-sys --allow-read scripts/start-emulator.ts",
     "test": "deno test --allow-env --allow-net --allow-sys --allow-read --env-file=.env.local src/**/*.test.ts",
-    "e2e": "deno test --allow-env --allow-net --allow-sys --allow-read --allow-write --allow-run --env-file=.env.local e2e/**/*.test.ts",
-    "wait-for-bucket": "deno run --allow-net --allow-env --env-file=.env.local --allow-sys --allow-read scripts/wait-for-bucket.ts"
+    "e2e": "deno test --allow-env --allow-net --allow-sys --allow-read --allow-write --allow-run --env-file=.env.local e2e/**/*.test.ts"
   }
 }
