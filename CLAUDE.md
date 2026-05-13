@@ -38,8 +38,18 @@ deno fmt
 
 ## Architecture
 
-Single-file application (`src/index.ts`) built on Hono with typed bindings for
-env vars and an S3Client context variable.
+Modular application built on Hono with typed bindings (`AppEnv` in
+`src/types.ts`) for env vars and an S3Client context variable.
+
+**Structure:**
+
+- `src/index.ts` — app setup, middleware registration, route registration
+- `src/types.ts` — shared `AppEnv` type definition
+- `src/middleware/auth.ts` — Bearer token authentication
+- `src/middleware/s3.ts` — S3 client initialization
+- `src/routes/cache.ts` — cache PUT/GET endpoints
+- `src/routes/metrics.ts` — metrics endpoints
+- `src/metrics/cacheHitRate.ts` — in-memory metrics tracking
 
 **Request flow:** S3Client init middleware -> Logger middleware -> Auth
 middleware (Bearer token) -> Route handler
@@ -47,9 +57,11 @@ middleware (Bearer token) -> Route handler
 **Routes:**
 
 - `GET /health` — health check (no auth)
-- `PUT /v1/cache/:hash` — upload artifact to S3 (checks for duplicates with
-  HeadObject, returns 409 on conflict)
+- `PUT /v1/cache/:hash` — upload artifact to S3 (requires Content-Length header,
+  checks for duplicates with HeadObject, returns 409 on conflict)
 - `GET /v1/cache/:hash` — download artifact via S3 presigned URL
+- `GET /v1/metrics/json` — JSON time series of cache hit/miss data
+- `GET /v1/metrics/chart` — HTML page with inline SVG chart
 
 **Key pattern:** The Hono `app` is exported separately from server startup
 (`if (import.meta.main)`), allowing unit tests to call `app.fetch()` directly
@@ -72,7 +84,8 @@ Both suites are self-contained — no Docker, no separate `deno task dev`.
 
 Required at runtime: `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`,
 `S3_BUCKET_NAME`, `S3_ENDPOINT_URL`, `NX_CACHE_ACCESS_TOKEN`. Optional: `PORT`
-(default 3000).
+(default 3000), `METRICS_AUTH` (default `true` — set to `false` to disable auth
+on metrics endpoints).
 
 Local dev values are in `.env.local` (emulate.dev's seeded IAM defaults:
 `AKIAIOSFODNN7EXAMPLE` / `wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY`, bucket

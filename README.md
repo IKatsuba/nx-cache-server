@@ -20,6 +20,7 @@ and provides a production-ready solution for self-hosting your Nx remote cache.
 - Efficient file streaming
 - Production-ready implementation
 - Available as a Docker image
+- Cache hit rate metrics (JSON and chart endpoints)
 
 ## Prerequisites
 
@@ -37,7 +38,8 @@ AWS_SECRET_ACCESS_KEY=your-secret-key
 S3_BUCKET_NAME=your-bucket-name
 S3_ENDPOINT_URL=your-s3-endpoint-url
 NX_CACHE_ACCESS_TOKEN=your-secure-token
-PORT=3000  # Optional, defaults to 3000
+PORT=3000         # Optional, defaults to 3000
+METRICS_AUTH=true # Optional, defaults to true. Set to false to disable auth on metrics endpoints
 ```
 
 ## Installation
@@ -119,6 +121,24 @@ deno task e2e
 
 Both suites boot their own emulator and (for e2e) cache server — no separate
 setup is required.
+
+## Metrics
+
+The server tracks cache hit/miss statistics and exposes them via two endpoints:
+
+- `GET /v1/metrics/json` — JSON time series data
+- `GET /v1/metrics/chart` — HTML page with inline SVG chart
+
+Both endpoints support query parameters:
+
+- `window` — time window (default `6h`). Supports: `30m`, `1h`, `6h`, `1d`, etc.
+- `bucket` — aggregation bucket size (default `1m`). Supports: `1m`, `5m`, `1h`,
+  etc.
+
+Example: `/v1/metrics/chart?window=1h&bucket=5m`
+
+**Note:** Metrics are currently stored in memory and reset on server restart. S3
+persistence is planned for a future version.
 
 ## Usage with Nx
 
