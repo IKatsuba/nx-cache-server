@@ -23,6 +23,7 @@
     "npm:@aws-sdk/client-s3@*": "3.779.0",
     "npm:@aws-sdk/client-s3@^3.779.0": "3.779.0",
     "npm:@aws-sdk/s3-request-presigner@^3.779.0": "3.779.0",
+    "npm:emulate@0.5": "0.5.0_hono@4.7.5",
     "npm:hono@^4.7.5": "4.7.5"
   },
   "jsr": {
@@ -645,6 +646,12 @@
         "tslib"
       ]
     },
+    "@hono/node-server@1.19.9_hono@4.7.5": {
+      "integrity": "sha512-vHL6w3ecZsky+8P5MD+eFfaGTyCeOHUIFYMGpQGbrBTSmNNoxv0if69rEZ5giu36weC5saFuznL411gRX7bJDw==",
+      "dependencies": [
+        "hono"
+      ]
+    },
     "@smithy/abort-controller@4.0.2": {
       "integrity": "sha512-Sl/78VDtgqKxN2+1qduaVE140XF+Xg+TafkncspwM4jFP/LHr76ZHmIY/y3V1M0mMLNk+Je6IGbzxy23RSToMw==",
       "dependencies": [
@@ -1085,6 +1092,19 @@
     "bowser@2.11.0": {
       "integrity": "sha512-AlcaJBi/pqqJBIQ8U9Mcpc9i8Aqxn88Skv5d+xBX006BY5u8N3mGLHa5Lgppa7L/HfwgwLgZ6NYs+Ag6uUmJRA=="
     },
+    "commander@14.0.3": {
+      "integrity": "sha512-H+y0Jo/T1RZ9qPP4Eh1pkcQcLRglraJaSLoyOtHxu6AapkjWVCy2Sit1QQ4x3Dng8qDlSsZEet7g5Pq06MvTgw=="
+    },
+    "emulate@0.5.0_hono@4.7.5": {
+      "integrity": "sha512-2LrOE8sqa1ITQ1aRR3kZhAhOCNz8hu+Kea9oBKdG/jEK6I/RYlMgHbsvQmbTTtr+nx6+fOOWkL6wqvfLeF5vuA==",
+      "dependencies": [
+        "@hono/node-server",
+        "commander",
+        "picocolors",
+        "yaml"
+      ],
+      "bin": true
+    },
     "fast-xml-parser@4.4.1": {
       "integrity": "sha512-xkjOecfnKGkSsOwtZ5Pz7Us/T6mrbPQrq0nh+aCO5V9nk5NLWmasAHumTKjiPJPWANe+kAZ84Jc8ooJkzZ88Sw==",
       "dependencies": [
@@ -1095,6 +1115,9 @@
     "hono@4.7.5": {
       "integrity": "sha512-fDOK5W2C1vZACsgLONigdZTRZxuBqFtcKh7bUQ5cVSbwI2RWjloJDcgFOVzbQrlI6pCmhlTsVYZ7zpLj4m4qMQ=="
     },
+    "picocolors@1.1.1": {
+      "integrity": "sha512-xceH2snhtb5M9liqDsmEw56le376mTZkEX/jEb/RxNFyegNul7eNslCXP9FDj/Lcu0X8KEyMceP2ntpaHrDEVA=="
+    },
     "strnum@1.1.2": {
       "integrity": "sha512-vrN+B7DBIoTTZjnPNewwhx6cBA/H+IS7rfW68n7XxC1y7uoiGQBxaKzqucGUgavX15dJgiGztLJ8vxuEzwqBdA=="
     },
@@ -1103,6 +1126,10 @@
     },
     "uuid@9.0.1": {
       "integrity": "sha512-b+1eJOlsR9K8HJpow9Ok3fiWOWSIcIzXodvv0rQjVoOVNpWMpxf1wZNpt4y9h10odCNrqnYp1OBzRktckBe3sA==",
+      "bin": true
+    },
+    "yaml@2.8.2": {
+      "integrity": "sha512-mplynKqc1C2hTVYxd0PU2xQAc22TI1vShAYGksCCfxbn/dFwnHTNi1bvYsBTkhdUNtGIf5xNOg938rrSSYvS9A==",
       "bin": true
     }
   },
@@ -1114,6 +1141,7 @@
       "jsr:@std/testing@^1.0.11",
       "npm:@aws-sdk/client-s3@^3.779.0",
       "npm:@aws-sdk/s3-request-presigner@^3.779.0",
+      "npm:emulate@0.5",
       "npm:hono@^4.7.5"
     ]
   }

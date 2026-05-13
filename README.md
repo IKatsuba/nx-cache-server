@@ -64,14 +64,18 @@ docker run -p 3000:3000 \
 
 ```bash
 git clone <repository-url>
-cd nx-cloud
+cd nx-cache-server
 ```
 
-2. Run docker compose to start the MinIO server:
+2. Start a local S3 emulator (no Docker required — uses
+   [emulate.dev](https://emulate.dev)):
 
 ```bash
-docker compose up -d
+deno task emulate
 ```
+
+This boots an in-memory AWS emulator on `http://localhost:4566` and seeds the
+`nx-cloud` bucket. Leave it running in its own terminal.
 
 ## Running the Server
 
@@ -81,19 +85,21 @@ Start the server with:
 deno task start
 ```
 
-## Testing
+For local development against the emulator above, use:
 
-Run the tests with:
+```bash
+deno task dev
+```
+
+## Testing
 
 ```bash
 deno task test
 deno task e2e
 ```
 
-> **Note:** The tests assume that the MinIO server is running and that the
-> `nx-cloud` bucket exists. Be sure to run
-> `docker compose -f docker-compose.yml up s3 create_bucket_and_user -d` before
-> running the tests.
+Both suites boot their own emulator and (for e2e) cache server — no separate
+setup is required.
 
 ## Usage with Nx
 

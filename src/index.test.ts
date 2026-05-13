@@ -1,100 +1,140 @@
 import { assertEquals, assertExists } from '@std/assert';
+import { afterAll, beforeAll, describe, it } from '@std/testing/bdd';
+import { startEmulator } from '../scripts/start-emulator.ts';
 import { app } from './index.ts';
 
-async function makeRequest(
-  method: string,
-  path: string,
-  headers: Record<string, string> = {},
-  body?: Uint8Array,
-) {
-  const req = new Request(`http://localhost${path}`, {
-    method,
-    headers: {
-      'Authorization': 'Bearer test-token',
-      ...headers,
-    },
-    body,
+const ACCESS_KEY_ID = 'AKIAIOSFODNN7EXAMPLE';
+const SECRET_ACCESS_KEY = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY';
+const BUCKET = 'nx-cloud';
+const TOKEN = 'test-token';
+
+describe('Cache server routes', () => {
+  let endpoint: string;
+  let emulator: { url: string; close(): Promise<void> };
+
+  beforeAll(async () => {
+    emulator = await startEmulator({ port: 4566, bucket: BUCKET });
+    endpoint = emulator.url;
   });
 
-  return await app.fetch(req, {
-    NX_CACHE_ACCESS_TOKEN: 'test-token',
-    AWS_REGION: 'us-east-1',
-    AWS_ACCESS_KEY_ID: 'minio',
-    AWS_SECRET_ACCESS_KEY: 'minio123',
-    S3_BUCKET_NAME: 'nx-cloud',
-    S3_ENDPOINT_URL: 'http://localhost:9000',
+  afterAll(async () => {
+    await emulator.close();
   });
-}
 
-Deno.test('PUT /v1/cache/{hash} - Success', async () => {
-  const hash = crypto.randomUUID();
+  async function makeRequest(
+    method: string,
+    path: string,
+    headers: Record<string, string> = {},
+    body?: Uint8Array,
+  ) {
+    const req = new Request(`http://localhost${path}`, {
+      method,
+      headers: {
+        'Authorization': `Bearer ${TOKEN}`,
+        ...headers,
+      },
+      body: body as BodyInit | undefined,
+    });
 
-  const response = await makeRequest(
-    'PUT',
-    `/v1/cache/${hash}`,
-    { 'Content-Type': 'application/octet-stream' },
-    Deno.readFileSync('./src/index.ts'),
-  );
+    return await app.fetch(req, {
+      NX_CACHE_ACCESS_TOKEN: TOKEN,
+      AWS_REGION: 'us-east-1',
+      AWS_ACCESS_KEY_ID: ACCESS_KEY_ID,
+      AWS_SECRET_ACCESS_KEY: SECRET_ACCESS_KEY,
+      S3_BUCKET_NAME: BUCKET,
+      S3_ENDPOINT_URL: endpoint,
+    });
+  }
 
-  assertEquals(response.status, 202);
-  const body = await response.text();
-  assertEquals(body, 'Successfully uploaded');
-});
+  it('PUT /v1/cache/{hash} - Success', async () => {
+    const hash = crypto.randomUUID();
+    const payload = Deno.readFileSync('./src/index.ts');
 
-Deno.test('PUT /v1/cache/{hash} - Unauthorized', async () => {
-  const hash = crypto.randomUUID();
+    const response = await makeRequest(
+      'PUT',
+      `/v1/cache/${hash}`,
+      {
+        'Content-Type': 'application/octet-stream',
+        'Content-Length': String(payload.byteLength),
+      },
+      payload,
+    );
 
-  const response = await makeRequest(
-    'PUT',
-    `/v1/cache/${hash}`,
-    {
-      'Authorization': 'Bearer wrong-token',
+    assertEquals(response.status, 200);
+    const body = await response.text();
+    assertEquals(body, 'Successfully uploaded');
+  });
+
+  it('PUT /v1/cache/{hash} - Missing Content-Length', async () => {
+    const hash = crypto.randomUUID();
+
+    const response = await makeRequest(
+      'PUT',
+      `/v1/cache/${hash}`,
+      { 'Content-Type': 'application/octet-stream' },
+      Deno.readFileSync('./src/index.ts'),
+    );
+
+    assertEquals(response.status, 411);
+    const body = await response.text();
+    assertEquals(body, 'Content-Length header is required');
+  });
+
+  it('PUT /v1/cache/{hash} - Unauthorized', async () => {
+    const hash = crypto.randomUUID();
+
+    const response = await makeRequest(
+      'PUT',
+      `/v1/cache/${hash}`,
+      {
+        'Authorization': 'Bearer wrong-token',
+        'Content-Length': '10',
+      },
+      Deno.readFileSync('./src/index.ts'),
+    );
+
+    assertEquals(response.status, 401);
+    const body = await response.text();
+    assertEquals(body, 'Missing or invalid authentication token');
+  });
+
+  it('GET /v1/cache/{hash} - Success', async () => {
+    const hash = crypto.randomUUID();
+
+    await makeRequest('PUT', `/v1/cache/${hash}`, {
       'Content-Length': '10',
-    },
-    Deno.readFileSync('./src/index.ts'),
-  );
+    }, Deno.readFileSync('./src/index.ts'));
 
-  assertEquals(response.status, 403);
-  const body = await response.text();
-  assertEquals(body, 'Access forbidden');
-});
+    const response = await makeRequest('GET', `/v1/cache/${hash}`);
 
-Deno.test('GET /v1/cache/{hash} - Success', async () => {
-  const hash = crypto.randomUUID();
+    assertEquals(response.status, 200);
+    assertExists(response.headers.get('content-type'));
 
-  await makeRequest('PUT', `/v1/cache/${hash}`, {
-    'Content-Length': '10',
-  }, Deno.readFileSync('./src/index.ts'));
+    const body = await response.text();
+    assertEquals(body, Deno.readTextFileSync('./src/index.ts'));
+  });
 
-  const response = await makeRequest('GET', `/v1/cache/${hash}`);
+  it('GET /v1/cache/{hash} - Unauthorized', async () => {
+    const hash = crypto.randomUUID();
 
-  assertEquals(response.status, 200);
-  assertExists(response.headers.get('content-type'));
+    const response = await makeRequest(
+      'GET',
+      `/v1/cache/${hash}`,
+      { 'Authorization': 'Bearer wrong-token' },
+    );
 
-  const body = await response.text();
-  assertEquals(body, Deno.readTextFileSync('./src/index.ts'));
-});
+    assertEquals(response.status, 401);
+    const body = await response.text();
+    assertEquals(body, 'Missing or invalid authentication token');
+  });
 
-Deno.test('GET /v1/cache/{hash} - Unauthorized', async () => {
-  const hash = crypto.randomUUID();
+  it('GET /v1/cache/{hash} - Not Found', async () => {
+    const hash = crypto.randomUUID();
 
-  const response = await makeRequest(
-    'GET',
-    `/v1/cache/${hash}`,
-    { 'Authorization': 'Bearer wrong-token' },
-  );
+    const response = await makeRequest('GET', `/v1/cache/${hash}`);
 
-  assertEquals(response.status, 403);
-  const body = await response.text();
-  assertEquals(body, 'Access forbidden');
-});
-
-Deno.test('GET /v1/cache/{hash} - Not Found', async () => {
-  const hash = crypto.randomUUID();
-
-  const response = await makeRequest('GET', `/v1/cache/${hash}`);
-
-  assertEquals(response.status, 404);
-  const body = await response.text();
-  assertEquals(body, 'The record was not found');
+    assertEquals(response.status, 404);
+    const body = await response.text();
+    assertEquals(body, 'The record was not found');
+  });
 });

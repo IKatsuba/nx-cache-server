@@ -45,7 +45,7 @@ const auth = () =>
   createMiddleware(async (c, next) => {
     const authHeader = c.req.header('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return new Response('Unauthorized', {
+      return new Response('Missing or invalid authentication token', {
         status: 401,
         headers: { 'Content-Type': 'text/plain' },
       });
@@ -54,8 +54,8 @@ const auth = () =>
     const token = authHeader.split(' ')[1];
 
     if (token !== c.env.NX_CACHE_ACCESS_TOKEN) {
-      return new Response('Access forbidden', {
-        status: 403,
+      return new Response('Missing or invalid authentication token', {
+        status: 401,
         headers: { 'Content-Type': 'text/plain' },
       });
     }
@@ -75,6 +75,14 @@ app.get('/health', () => {
 app.put('/v1/cache/:hash', auth(), async (c) => {
   try {
     const hash = c.req.param('hash');
+
+    const contentLength = c.req.header('Content-Length');
+    if (contentLength === undefined || Number.isNaN(Number(contentLength))) {
+      return new Response('Content-Length header is required', {
+        status: 411,
+        headers: { 'Content-Type': 'text/plain' },
+      });
+    }
 
     try {
       await c.get('s3').send(
@@ -111,7 +119,7 @@ app.put('/v1/cache/:hash', auth(), async (c) => {
     );
 
     return new Response('Successfully uploaded', {
-      status: 202,
+      status: 200,
       headers: { 'Content-Type': 'text/plain' },
     });
   } catch (error: unknown) {
@@ -156,7 +164,18 @@ app.get('/v1/cache/:hash', auth(), async (c) => {
       });
     }
 
-    return response;
+    const headers = new Headers({
+      'Content-Type': 'application/octet-stream',
+    });
+    const contentLength = response.headers.get('Content-Length');
+    if (contentLength) {
+      headers.set('Content-Length', contentLength);
+    }
+
+    return new Response(response.body, {
+      status: 200,
+      headers,
+    });
   } catch (error: unknown) {
     if (error instanceof Error && error.name === 'NoSuchKey') {
       return new Response('The record was not found', {
