@@ -58,6 +58,25 @@ docker run -p 3000:3000 \
   ghcr.io/ikatsuba/nx-cache-server:latest
 ```
 
+### Using Helm (Kubernetes)
+
+The chart is published as an OCI artifact to GHCR alongside the Docker image:
+
+```bash
+helm install nx-cache oci://ghcr.io/ikatsuba/charts/nx-cache-server \
+  --version <X.Y.Z> \
+  --namespace nx-cache --create-namespace \
+  --set secrets.nxCacheAccessToken=your-secure-token \
+  --set secrets.awsAccessKeyId=your-access-key \
+  --set secrets.awsSecretAccessKey=your-secret-key \
+  --set config.s3.bucketName=your-bucket-name \
+  --set config.s3.endpointUrl=https://s3.amazonaws.com
+```
+
+See [`charts/nx-cache-server/README.md`](charts/nx-cache-server/README.md) for
+the full values reference, externally managed Secret usage, and IRSA / Workload
+Identity setup.
+
 ### Manual Installation
 
 1. Clone the repository:

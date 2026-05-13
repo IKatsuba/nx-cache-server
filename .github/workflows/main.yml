@@ -40,6 +40,24 @@ jobs:
         run: |
           deno task test
           deno task e2e
+  helm-lint:
+    name: Helm Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.2
+      - name: helm lint
+        run: helm lint charts/nx-cache-server
+      - name: helm template smoke test
+        run: |
+          helm template test charts/nx-cache-server \
+            --set secrets.nxCacheAccessToken=token \
+            --set secrets.awsAccessKeyId=key \
+            --set secrets.awsSecretAccessKey=secret \
+            --set config.s3.endpointUrl=http://localhost:4566 \
+            > /dev/null
   publish:
     runs-on: ubuntu-latest
     needs:
@@ -84,3 +102,34 @@ jobs:
           platforms: |
             linux/amd64
             linux/arm64/v8
+  helm-publish:
+    name: Publish Helm Chart
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    needs:
+      - checks
+      - e2e
+      - helm-lint
+      - publish
+    permissions:
+      contents: read
+      packages: write
+    env:
+      CHART_DIR: charts/nx-cache-server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.2
+      - name: Derive version from release tag
+        id: ver
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+      - name: Package chart
+        run: |
+          helm package "$CHART_DIR" \
+            --version "${{ steps.ver.outputs.version }}" \
+            --app-version "${{ steps.ver.outputs.version }}"
+      - name: Login to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+      - name: Push chart to GHCR
+        run: helm push "nx-cache-server-${{ steps.ver.outputs.version }}.tgz" oci://ghcr.io/ikatsuba/charts

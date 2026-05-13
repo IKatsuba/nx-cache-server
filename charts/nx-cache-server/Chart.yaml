@@ -1,0 +1,18 @@
+apiVersion: v2
+name: nx-cache-server
+description: Self-hosted Nx remote cache server backed by S3-compatible storage.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+kubeVersion: ">=1.23.0-0"
+home: https://github.com/IKatsuba/nx-cache-server
+sources:
+  - https://github.com/IKatsuba/nx-cache-server
+keywords:
+  - nx
+  - cache
+  - remote-cache
+  - s3
+maintainers:
+  - name: IKatsuba
+    url: https://github.com/IKatsuba
