@@ -54,6 +54,26 @@ keys in the Secret because the server reads them from env vars. To opt fully
 out of static keys, fork the chart or set them to empty placeholders if your
 S3 client picks up the IAM role from the metadata service.
 
+## Serving over HTTPS
+
+TLS is usually terminated at the Ingress. If you instead want the pod itself to
+serve HTTPS, point `tls.secretName` at an existing `kubernetes.io/tls` Secret
+(e.g. one issued by cert-manager) and enable TLS. The cert/key are mounted
+read-only and the probes switch to the HTTPS scheme automatically.
+
+```bash
+helm install nx-cache oci://ghcr.io/ikatsuba/charts/nx-cache-server \
+  --set config.s3.endpointUrl=https://s3.amazonaws.com \
+  --set tls.enabled=true \
+  --set tls.secretName=nx-cache-tls
+```
+
+> **Certificate rotation.** The server reads the cert/key once at startup, so a
+> renewed certificate is not picked up until the pod restarts. When cert-manager
+> rotates the Secret, trigger a rollout (`kubectl rollout restart deployment/...`)
+> or use a controller such as [Reloader](https://github.com/stakater/Reloader) to
+> restart the pods automatically.
+
 ## Values
 
 | Key | Default | Description |
@@ -78,6 +98,11 @@ S3 client picks up the IAM role from the metadata service.
 | `secrets.nxCacheAccessToken` | `""` | Required if `existingSecret` is empty |
 | `secrets.awsAccessKeyId` | `""` | Required if `existingSecret` is empty |
 | `secrets.awsSecretAccessKey` | `""` | Required if `existingSecret` is empty |
+| `tls.enabled` | `false` | Serve over HTTPS using a mounted cert/key |
+| `tls.secretName` | `""` | Existing Secret holding the PEM cert/key. Required when `tls.enabled` |
+| `tls.certKey` | `tls.crt` | Key in the Secret holding the PEM cert |
+| `tls.keyKey` | `tls.key` | Key in the Secret holding the PEM key |
+| `tls.mountPath` | `/etc/nx-cache-server/tls` | Mount path for the cert/key |
 | `extraEnv` | `[]` | Extra env vars appended to the container |
 | `resources` | `{}` | |
 | `nodeSelector` | `{}` | |
