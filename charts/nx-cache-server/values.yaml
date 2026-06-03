@@ -64,6 +64,20 @@ secrets:
   awsAccessKeyId: ""
   awsSecretAccessKey: ""
 
+# Optional TLS/HTTPS. When enabled the server reads the cert/key from a mounted
+# Secret and serves HTTPS instead of HTTP. Disabled by default — TLS is commonly
+# terminated at the Ingress instead.
+tls:
+  enabled: false
+  # Name of an existing Secret (e.g. a kubernetes.io/tls Secret managed by
+  # cert-manager) holding the PEM cert and key. Required when enabled.
+  secretName: ""
+  # Keys within the Secret holding the PEM cert and key.
+  certKey: tls.crt
+  keyKey: tls.key
+  # Mount path for the cert/key inside the container.
+  mountPath: /etc/nx-cache-server/tls
+
 # Extra environment variables appended to the container. Use either `value`
 # or `valueFrom` per Kubernetes env semantics.
 extraEnv: []

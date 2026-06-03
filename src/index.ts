@@ -193,9 +193,27 @@ app.get('/v1/cache/:hash', auth(), async (c) => {
 
 if (import.meta.main) {
   const port = parseInt(Deno.env.get('PORT') || '3000');
-  console.log(`Server running on port ${port}`);
 
-  Deno.serve({ port }, (req) =>
+  const certPath = Deno.env.get('TLS_CERT_PATH');
+  const keyPath = Deno.env.get('TLS_KEY_PATH');
+
+  if (Boolean(certPath) !== Boolean(keyPath)) {
+    console.error(
+      'TLS misconfiguration: TLS_CERT_PATH and TLS_KEY_PATH must be set together',
+    );
+    Deno.exit(1);
+  }
+
+  const tls = certPath && keyPath
+    ? {
+      cert: Deno.readTextFileSync(certPath),
+      key: Deno.readTextFileSync(keyPath),
+    }
+    : {};
+
+  console.log(`Server running on port ${port}${certPath ? ' over HTTPS' : ''}`);
+
+  Deno.serve({ port, ...tls }, (req) =>
     app.fetch(req, {
       NX_CACHE_ACCESS_TOKEN: Deno.env.get('NX_CACHE_ACCESS_TOKEN'),
       AWS_REGION: Deno.env.get('AWS_REGION') || 'us-east-1',

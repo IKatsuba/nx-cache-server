@@ -38,7 +38,21 @@ S3_BUCKET_NAME=your-bucket-name
 S3_ENDPOINT_URL=your-s3-endpoint-url
 NX_CACHE_ACCESS_TOKEN=your-secure-token
 PORT=3000  # Optional, defaults to 3000
+TLS_CERT_PATH=/path/to/tls.crt  # Optional, enables HTTPS (must be set with TLS_KEY_PATH)
+TLS_KEY_PATH=/path/to/tls.key   # Optional, enables HTTPS (must be set with TLS_CERT_PATH)
 ```
+
+See [`.env.example`](.env.example) for a ready-to-copy template.
+
+### HTTPS / TLS
+
+By default the server listens over plain HTTP. To serve over HTTPS directly —
+without putting a reverse proxy in front of it — set both `TLS_CERT_PATH` and
+`TLS_KEY_PATH` to the PEM cert and key files (they must be set together; setting
+only one exits with a configuration error). The files are read once at startup,
+so rotating the certificate requires a restart. In Kubernetes, terminating TLS
+at the Ingress is usually preferable; this option is for direct exposure or
+mutual-TLS setups.
 
 ## Installation
 
@@ -49,6 +63,22 @@ The easiest way to run the server is using the official Docker image:
 ```bash
 docker pull ghcr.io/ikatsuba/nx-cache-server:latest
 docker run -p 3000:3000 \
+  -e AWS_REGION=your-aws-region \
+  -e AWS_ACCESS_KEY_ID=your-access-key \
+  -e AWS_SECRET_ACCESS_KEY=your-secret-key \
+  -e S3_BUCKET_NAME=your-bucket-name \
+  -e S3_ENDPOINT_URL=your-s3-endpoint-url \
+  -e NX_CACHE_ACCESS_TOKEN=your-secure-token \
+  ghcr.io/ikatsuba/nx-cache-server:latest
+```
+
+To serve over HTTPS, mount your PEM cert/key and point the TLS env vars at them:
+
+```bash
+docker run -p 3000:3000 \
+  -v /host/certs:/certs:ro \
+  -e TLS_CERT_PATH=/certs/tls.crt \
+  -e TLS_KEY_PATH=/certs/tls.key \
   -e AWS_REGION=your-aws-region \
   -e AWS_ACCESS_KEY_ID=your-access-key \
   -e AWS_SECRET_ACCESS_KEY=your-secret-key \
@@ -86,7 +116,14 @@ git clone <repository-url>
 cd nx-cache-server
 ```
 
-2. Start a local S3 emulator (no Docker required — uses
+2. Copy the environment template and fill in your values (the `start` task reads
+   `.env`):
+
+```bash
+cp .env.example .env
+```
+
+3. Start a local S3 emulator (no Docker required — uses
    [emulate.dev](https://emulate.dev)):
 
 ```bash

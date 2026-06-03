@@ -66,6 +66,12 @@ spec:
                 secretKeyRef:
                   name: {{ include "nx-cache-server.secretName" . }}
                   key: aws-secret-access-key
+            {{- if .Values.tls.enabled }}
+            - name: TLS_CERT_PATH
+              value: {{ printf "%s/%s" .Values.tls.mountPath .Values.tls.certKey | quote }}
+            - name: TLS_KEY_PATH
+              value: {{ printf "%s/%s" .Values.tls.mountPath .Values.tls.keyKey | quote }}
+            {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -74,6 +80,9 @@ spec:
             httpGet:
               path: {{ .Values.probes.liveness.path }}
               port: http
+              {{- if .Values.tls.enabled }}
+              scheme: HTTPS
+              {{- end }}
             initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
             periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
           {{- end }}
@@ -82,6 +91,9 @@ spec:
             httpGet:
               path: {{ .Values.probes.readiness.path }}
               port: http
+              {{- if .Values.tls.enabled }}
+              scheme: HTTPS
+              {{- end }}
             initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
             periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
           {{- end }}
@@ -89,6 +101,18 @@ spec:
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          {{- if .Values.tls.enabled }}
+          volumeMounts:
+            - name: tls
+              mountPath: {{ .Values.tls.mountPath }}
+              readOnly: true
+          {{- end }}
+      {{- if .Values.tls.enabled }}
+      volumes:
+        - name: tls
+          secret:
+            secretName: {{ required "tls.secretName is required when tls.enabled is true" .Values.tls.secretName }}
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
