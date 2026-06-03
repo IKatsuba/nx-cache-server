@@ -54,6 +54,14 @@ so rotating the certificate requires a restart. In Kubernetes, terminating TLS
 at the Ingress is usually preferable; this option is for direct exposure or
 mutual-TLS setups.
 
+> **Certificate trust for Nx clients.** Nx's self-hosted cache client uses a
+> native HTTP client that validates against the operating system trust store —
+> it does **not** honor `NODE_EXTRA_CA_CERTS` or `SSL_CERT_FILE`. Use a
+> certificate that is already trusted on the machines running Nx (a public CA
+> such as Let's Encrypt, or your corporate CA), or install your CA into the
+> system trust store. A bare self-signed certificate is rejected by Nx with
+> `error sending request`.
+
 ## Installation
 
 ### Using Docker
