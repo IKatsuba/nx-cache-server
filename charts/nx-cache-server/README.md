@@ -68,6 +68,12 @@ helm install nx-cache oci://ghcr.io/ikatsuba/charts/nx-cache-server \
   --set tls.secretName=nx-cache-tls
 ```
 
+> **Certificate rotation.** The server reads the cert/key once at startup, so a
+> renewed certificate is not picked up until the pod restarts. When cert-manager
+> rotates the Secret, trigger a rollout (`kubectl rollout restart deployment/...`)
+> or use a controller such as [Reloader](https://github.com/stakater/Reloader) to
+> restart the pods automatically.
+
 ## Values
 
 | Key | Default | Description |

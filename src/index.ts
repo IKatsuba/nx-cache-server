@@ -204,12 +204,22 @@ if (import.meta.main) {
     Deno.exit(1);
   }
 
-  const tls = certPath && keyPath
-    ? {
-      cert: Deno.readTextFileSync(certPath),
-      key: Deno.readTextFileSync(keyPath),
+  let tls = {};
+  if (certPath && keyPath) {
+    try {
+      tls = {
+        cert: Deno.readTextFileSync(certPath),
+        key: Deno.readTextFileSync(keyPath),
+      };
+    } catch (e) {
+      console.error(
+        `TLS misconfiguration: cannot read cert/key: ${
+          e instanceof Error ? e.message : e
+        }`,
+      );
+      Deno.exit(1);
     }
-    : {};
+  }
 
   console.log(`Server running on port ${port}${certPath ? ' over HTTPS' : ''}`);
 
