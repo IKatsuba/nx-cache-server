@@ -1,0 +1,8 @@
+# Deny everything, then allow-list only what the runtime image needs.
+# Keeps `.git` (which carries the ephemeral CI checkout token in
+# `http.extraheader`), `.env*` files, tests and TLS fixtures out of the image.
+*
+
+!deno.json
+!deno.lock
+!src/index.ts

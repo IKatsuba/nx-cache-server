@@ -18,6 +18,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Setup Deno
         uses: denoland/setup-deno@v2
         with:
@@ -32,6 +34,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Setup Deno
         uses: denoland/setup-deno@v2
         with:
@@ -45,6 +49,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: azure/setup-helm@v4
         with:
           version: v3.16.2
@@ -71,6 +77,8 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5
@@ -118,6 +126,8 @@ jobs:
       CHART_DIR: charts/nx-cache-server
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: azure/setup-helm@v4
         with:
           version: v3.16.2
