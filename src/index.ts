@@ -14,8 +14,10 @@ export const app = new Hono<{
   Bindings: {
     NX_CACHE_ACCESS_TOKEN: string;
     AWS_REGION: string;
-    AWS_ACCESS_KEY_ID: string;
-    AWS_SECRET_ACCESS_KEY: string;
+    // Optional: when either is absent the AWS SDK's default credential chain is
+    // used instead (env -> web identity / IRSA -> IMDS).
+    AWS_ACCESS_KEY_ID?: string;
+    AWS_SECRET_ACCESS_KEY?: string;
     S3_BUCKET_NAME: string;
     S3_ENDPOINT_URL: string;
   };
@@ -25,15 +27,20 @@ export const app = new Hono<{
 }>();
 
 app.use(async (c, next) => {
+  const accessKeyId = c.env.AWS_ACCESS_KEY_ID;
+  const secretAccessKey = c.env.AWS_SECRET_ACCESS_KEY;
+
   c.set(
     's3',
     new S3Client({
       region: c.env.AWS_REGION,
       endpoint: c.env.S3_ENDPOINT_URL,
-      credentials: {
-        accessKeyId: c.env.AWS_ACCESS_KEY_ID,
-        secretAccessKey: c.env.AWS_SECRET_ACCESS_KEY,
-      },
+      // Only pass credentials when they are actually configured: an explicit
+      // credentials object short-circuits the SDK's default provider chain, so
+      // passing one unconditionally makes IRSA / Workload Identity impossible.
+      ...(accessKeyId && secretAccessKey
+        ? { credentials: { accessKeyId, secretAccessKey } }
+        : {}),
       forcePathStyle: true,
     }),
   );
@@ -194,6 +201,17 @@ app.get('/v1/cache/:hash', auth(), async (c) => {
 if (import.meta.main) {
   const port = parseInt(Deno.env.get('PORT') || '3000');
 
+  const accessKeyId = Deno.env.get('AWS_ACCESS_KEY_ID');
+  const secretAccessKey = Deno.env.get('AWS_SECRET_ACCESS_KEY');
+
+  if (Boolean(accessKeyId) !== Boolean(secretAccessKey)) {
+    console.error(
+      'AWS credential misconfiguration: AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY ' +
+        'must be set together, or both omitted to use the default credential chain',
+    );
+    Deno.exit(1);
+  }
+
   const certPath = Deno.env.get('TLS_CERT_PATH');
   const keyPath = Deno.env.get('TLS_KEY_PATH');
 
@@ -227,8 +245,8 @@ if (import.meta.main) {
     app.fetch(req, {
       NX_CACHE_ACCESS_TOKEN: Deno.env.get('NX_CACHE_ACCESS_TOKEN'),
       AWS_REGION: Deno.env.get('AWS_REGION') || 'us-east-1',
-      AWS_ACCESS_KEY_ID: Deno.env.get('AWS_ACCESS_KEY_ID'),
-      AWS_SECRET_ACCESS_KEY: Deno.env.get('AWS_SECRET_ACCESS_KEY'),
+      AWS_ACCESS_KEY_ID: accessKeyId,
+      AWS_SECRET_ACCESS_KEY: secretAccessKey,
       S3_BUCKET_NAME: Deno.env.get('S3_BUCKET_NAME') || 'nx-cloud',
       S3_ENDPOINT_URL: Deno.env.get('S3_ENDPOINT_URL'),
     }));

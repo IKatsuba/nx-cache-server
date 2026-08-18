@@ -37,8 +37,10 @@ helm install nx-cache oci://ghcr.io/ikatsuba/charts/nx-cache-server \
 
 ## IRSA / Workload Identity (no static AWS keys)
 
-Annotate the ServiceAccount so the pod uses cloud-native credentials. With
-IRSA on EKS:
+Set `secrets.staticAwsCredentials: false` and annotate the ServiceAccount. The
+AWS key env vars are then omitted from the pod entirely, so the AWS SDK falls
+through to its default credential chain and picks up the projected web-identity
+token. With IRSA on EKS:
 
 ```yaml
 serviceAccount:
@@ -46,13 +48,13 @@ serviceAccount:
     eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/nx-cache-server
 
 secrets:
+  staticAwsCredentials: false
   existingSecret: nx-cache-token-only  # holding only nx-cache-access-token
 ```
 
-When using IRSA you still need `aws-access-key-id` / `aws-secret-access-key`
-keys in the Secret because the server reads them from env vars. To opt fully
-out of static keys, fork the chart or set them to empty placeholders if your
-S3 client picks up the IAM role from the metadata service.
+The Secret then only needs `nx-cache-access-token`. Do not set the AWS keys to
+empty strings instead: empty credentials are still an explicit credentials
+object, so the SDK signs with them and S3 rejects the request with a 400.
 
 ## Serving over HTTPS
 
@@ -96,8 +98,9 @@ helm install nx-cache oci://ghcr.io/ikatsuba/charts/nx-cache-server \
 | `config.s3.endpointUrl` | `""` | **Required.** `S3_ENDPOINT_URL` |
 | `secrets.existingSecret` | `""` | If set, skip Secret creation and use this one |
 | `secrets.nxCacheAccessToken` | `""` | Required if `existingSecret` is empty |
-| `secrets.awsAccessKeyId` | `""` | Required if `existingSecret` is empty |
-| `secrets.awsSecretAccessKey` | `""` | Required if `existingSecret` is empty |
+| `secrets.staticAwsCredentials` | `true` | Mount `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`. Set `false` for IRSA / Workload Identity |
+| `secrets.awsAccessKeyId` | `""` | Required if `existingSecret` is empty and `staticAwsCredentials` is `true` |
+| `secrets.awsSecretAccessKey` | `""` | Required if `existingSecret` is empty and `staticAwsCredentials` is `true` |
 | `tls.enabled` | `false` | Serve over HTTPS using a mounted cert/key |
 | `tls.secretName` | `""` | Existing Secret holding the PEM cert/key. Required when `tls.enabled` |
 | `tls.certKey` | `tls.crt` | Key in the Secret holding the PEM cert |
@@ -113,5 +116,6 @@ helm install nx-cache oci://ghcr.io/ikatsuba/charts/nx-cache-server \
 | `podSecurityContext` | `{}` | |
 | `securityContext` | `{}` | |
 
-When using `secrets.existingSecret`, the Secret must contain the keys
-`nx-cache-access-token`, `aws-access-key-id`, `aws-secret-access-key`.
+When using `secrets.existingSecret`, the Secret must contain
+`nx-cache-access-token`, plus `aws-access-key-id` and `aws-secret-access-key`
+unless `secrets.staticAwsCredentials` is `false`.

@@ -70,9 +70,11 @@ Both suites are self-contained — no Docker, no separate `deno task dev`.
 
 ## Environment Variables
 
-Required at runtime: `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`,
-`S3_BUCKET_NAME`, `S3_ENDPOINT_URL`, `NX_CACHE_ACCESS_TOKEN`. Optional: `PORT`
-(default 3000).
+Required at runtime: `AWS_REGION`, `S3_BUCKET_NAME`, `S3_ENDPOINT_URL`,
+`NX_CACHE_ACCESS_TOKEN`. Optional: `PORT` (default 3000), and
+`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` — set both for static credentials,
+or omit both to use the AWS SDK's default credential chain (IRSA / Workload
+Identity, IMDS, shared config). Setting only one is a startup error.
 
 Local dev values are in `.env.local` (emulate.dev's seeded IAM defaults:
 `AKIAIOSFODNN7EXAMPLE` / `wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY`, bucket

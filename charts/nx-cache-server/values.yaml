@@ -52,15 +52,19 @@ config:
     # S3 endpoint URL — e.g. https://s3.amazonaws.com or a custom endpoint.
     endpointUrl: ""
 
-# Secret strategy: either supply the three values below to have the chart
-# create a Secret, or set existingSecret to the name of an externally managed
-# Secret. The external Secret must contain keys:
+# Secret strategy: either supply the values below to have the chart create a
+# Secret, or set existingSecret to the name of an externally managed Secret.
+# The external Secret must contain:
 #   - nx-cache-access-token
-#   - aws-access-key-id
-#   - aws-secret-access-key
+#   - aws-access-key-id      (only when staticAwsCredentials is true)
+#   - aws-secret-access-key  (only when staticAwsCredentials is true)
 secrets:
   existingSecret: ""
   nxCacheAccessToken: ""
+  # Set to false for IRSA / GKE Workload Identity: the AWS key env vars are
+  # omitted from the pod entirely and the AWS SDK's default credential chain is
+  # used instead. Annotate the ServiceAccount accordingly (see values above).
+  staticAwsCredentials: true
   awsAccessKeyId: ""
   awsSecretAccessKey: ""
 

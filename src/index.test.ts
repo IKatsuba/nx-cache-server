@@ -137,4 +137,45 @@ describe('Cache server routes', () => {
     const body = await response.text();
     assertEquals(body, 'The record was not found');
   });
+
+  // Regression guard for the IRSA bug: the server used to pass an explicit
+  // `credentials` object unconditionally, which short-circuits the AWS SDK's
+  // default provider chain before it can read AWS_WEB_IDENTITY_TOKEN_FILE.
+  //
+  // With no keys in the bindings the request can only succeed if the SDK
+  // resolved credentials itself. It does not prove *which* provider won - the
+  // emulator does not verify signatures - only that the chain was consulted
+  // rather than bypassed, which is exactly what the bug prevented.
+  it('PUT /v1/cache/{hash} - no static keys, credentials from the SDK chain', async () => {
+    const hash = crypto.randomUUID();
+    const payload = new TextEncoder().encode('default-credential-chain');
+
+    Deno.env.set('AWS_ACCESS_KEY_ID', ACCESS_KEY_ID);
+    Deno.env.set('AWS_SECRET_ACCESS_KEY', SECRET_ACCESS_KEY);
+
+    try {
+      const req = new Request(`http://localhost/v1/cache/${hash}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${TOKEN}`,
+          'Content-Type': 'application/octet-stream',
+          'Content-Length': String(payload.byteLength),
+        },
+        body: payload,
+      });
+
+      const response = await app.fetch(req, {
+        NX_CACHE_ACCESS_TOKEN: TOKEN,
+        AWS_REGION: 'us-east-1',
+        S3_BUCKET_NAME: BUCKET,
+        S3_ENDPOINT_URL: endpoint,
+      });
+
+      assertEquals(response.status, 200);
+      assertEquals(await response.text(), 'Successfully uploaded');
+    } finally {
+      Deno.env.delete('AWS_ACCESS_KEY_ID');
+      Deno.env.delete('AWS_SECRET_ACCESS_KEY');
+    }
+  });
 });

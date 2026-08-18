@@ -64,6 +64,16 @@ jobs:
             --set secrets.awsSecretAccessKey=secret \
             --set config.s3.endpointUrl=http://localhost:4566 \
             > /dev/null
+      - name: helm template smoke test (IRSA, no static credentials)
+        run: |
+          rendered=$(helm template test charts/nx-cache-server \
+            --set secrets.nxCacheAccessToken=token \
+            --set secrets.staticAwsCredentials=false \
+            --set config.s3.endpointUrl=http://localhost:4566)
+          if grep -q 'AWS_ACCESS_KEY_ID\|AWS_SECRET_ACCESS_KEY' <<< "$rendered"; then
+            echo "AWS key env vars must not be rendered when staticAwsCredentials=false"
+            exit 1
+          fi
   publish:
     runs-on: ubuntu-latest
     needs:
