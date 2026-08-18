@@ -138,14 +138,20 @@ describe('Cache server routes', () => {
     assertEquals(body, 'The record was not found');
   });
 
-  // Regression guard for the IRSA bug: the server used to pass an explicit
-  // `credentials` object unconditionally, which short-circuits the AWS SDK's
-  // default provider chain before it can read AWS_WEB_IDENTITY_TOKEN_FILE.
+  // Regression guard for issue #12 (IRSA / Workload Identity could not work).
+  //
+  // The S3 client used to be constructed with an explicit `credentials` object
+  // whether or not the keys were set. An explicit credentials value
+  // short-circuits the AWS SDK's provider chain before it reads
+  // AWS_WEB_IDENTITY_TOKEN_FILE, so a pod relying on a projected web-identity
+  // token could never authenticate: absent keys failed with "Resolved
+  // credential object is not valid" and empty keys produced an S3 400.
+  // Running this test against that code reproduces the former.
   //
   // With no keys in the bindings the request can only succeed if the SDK
   // resolved credentials itself. It does not prove *which* provider won - the
   // emulator does not verify signatures - only that the chain was consulted
-  // rather than bypassed, which is exactly what the bug prevented.
+  // rather than bypassed, which is what the bug prevented.
   it('PUT /v1/cache/{hash} - no static keys, credentials from the SDK chain', async () => {
     const hash = crypto.randomUUID();
     const payload = new TextEncoder().encode('default-credential-chain');

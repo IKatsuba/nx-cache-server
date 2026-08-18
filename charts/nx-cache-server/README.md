@@ -52,9 +52,7 @@ secrets:
   existingSecret: nx-cache-token-only  # holding only nx-cache-access-token
 ```
 
-The Secret then only needs `nx-cache-access-token`. Do not set the AWS keys to
-empty strings instead: empty credentials are still an explicit credentials
-object, so the SDK signs with them and S3 rejects the request with a 400.
+The Secret then only needs `nx-cache-access-token`.
 
 ## Serving over HTTPS
 
