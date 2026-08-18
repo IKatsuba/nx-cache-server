@@ -1,12 +1,21 @@
-import { assertEquals, assertExists } from '@std/assert';
+import { assertEquals, assertExists, assertThrows } from '@std/assert';
 import { afterAll, beforeAll, describe, it } from '@std/testing/bdd';
 import { startEmulator } from '../scripts/start-emulator.ts';
-import { app } from './index.ts';
+import type { Bindings } from './index.ts';
+import { app, s3Client, staticCredentials } from './index.ts';
 
 const ACCESS_KEY_ID = 'AKIAIOSFODNN7EXAMPLE';
 const SECRET_ACCESS_KEY = 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY';
 const BUCKET = 'nx-cloud';
 const TOKEN = 'test-token';
+
+function restoreEnv(name: string, value: string | undefined) {
+  if (value === undefined) {
+    Deno.env.delete(name);
+  } else {
+    Deno.env.set(name, value);
+  }
+}
 
 describe('Cache server routes', () => {
   let endpoint: string;
@@ -26,6 +35,7 @@ describe('Cache server routes', () => {
     path: string,
     headers: Record<string, string> = {},
     body?: Uint8Array,
+    bindings?: Partial<Bindings>,
   ) {
     const req = new Request(`http://localhost${path}`, {
       method,
@@ -43,6 +53,7 @@ describe('Cache server routes', () => {
       AWS_SECRET_ACCESS_KEY: SECRET_ACCESS_KEY,
       S3_BUCKET_NAME: BUCKET,
       S3_ENDPOINT_URL: endpoint,
+      ...bindings,
     });
   }
 
@@ -156,32 +167,99 @@ describe('Cache server routes', () => {
     const hash = crypto.randomUUID();
     const payload = new TextEncoder().encode('default-credential-chain');
 
+    // .env.local already puts these in the process env; set them explicitly so
+    // the test does not depend on that, and restore whatever was there before.
+    const previous = {
+      id: Deno.env.get('AWS_ACCESS_KEY_ID'),
+      secret: Deno.env.get('AWS_SECRET_ACCESS_KEY'),
+    };
     Deno.env.set('AWS_ACCESS_KEY_ID', ACCESS_KEY_ID);
     Deno.env.set('AWS_SECRET_ACCESS_KEY', SECRET_ACCESS_KEY);
 
     try {
-      const req = new Request(`http://localhost/v1/cache/${hash}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${TOKEN}`,
+      const response = await makeRequest(
+        'PUT',
+        `/v1/cache/${hash}`,
+        {
           'Content-Type': 'application/octet-stream',
           'Content-Length': String(payload.byteLength),
         },
-        body: payload,
-      });
-
-      const response = await app.fetch(req, {
-        NX_CACHE_ACCESS_TOKEN: TOKEN,
-        AWS_REGION: 'us-east-1',
-        S3_BUCKET_NAME: BUCKET,
-        S3_ENDPOINT_URL: endpoint,
-      });
+        payload,
+        { AWS_ACCESS_KEY_ID: undefined, AWS_SECRET_ACCESS_KEY: undefined },
+      );
 
       assertEquals(response.status, 200);
       assertEquals(await response.text(), 'Successfully uploaded');
     } finally {
-      Deno.env.delete('AWS_ACCESS_KEY_ID');
-      Deno.env.delete('AWS_SECRET_ACCESS_KEY');
+      restoreEnv('AWS_ACCESS_KEY_ID', previous.id);
+      restoreEnv('AWS_SECRET_ACCESS_KEY', previous.secret);
     }
+  });
+});
+
+describe('staticCredentials', () => {
+  const base = {
+    NX_CACHE_ACCESS_TOKEN: TOKEN,
+    AWS_REGION: 'us-east-1',
+    S3_BUCKET_NAME: BUCKET,
+    S3_ENDPOINT_URL: 'http://localhost:4566',
+  };
+
+  it('returns undefined when both keys are unset, so the SDK chain runs', () => {
+    assertEquals(staticCredentials({ ...base }), undefined);
+  });
+
+  it('returns the pair when both keys are set', () => {
+    assertEquals(
+      staticCredentials({
+        ...base,
+        AWS_ACCESS_KEY_ID: ACCESS_KEY_ID,
+        AWS_SECRET_ACCESS_KEY: SECRET_ACCESS_KEY,
+      }),
+      { accessKeyId: ACCESS_KEY_ID, secretAccessKey: SECRET_ACCESS_KEY },
+    );
+  });
+
+  it('throws when only one key is set', () => {
+    assertThrows(
+      () => staticCredentials({ ...base, AWS_ACCESS_KEY_ID: ACCESS_KEY_ID }),
+      Error,
+      'must both be non-empty, or both unset',
+    );
+  });
+
+  // An empty value is a leftover placeholder, not a request to use the chain:
+  // falling back silently would sign as whatever ambient identity exists.
+  it('throws when a key is an empty string', () => {
+    assertThrows(
+      () =>
+        staticCredentials({
+          ...base,
+          AWS_ACCESS_KEY_ID: '',
+          AWS_SECRET_ACCESS_KEY: SECRET_ACCESS_KEY,
+        }),
+      Error,
+      'must both be non-empty, or both unset',
+    );
+  });
+});
+
+describe('s3Client', () => {
+  const base = {
+    NX_CACHE_ACCESS_TOKEN: TOKEN,
+    AWS_REGION: 'us-east-1',
+    S3_BUCKET_NAME: BUCKET,
+    S3_ENDPOINT_URL: 'http://localhost:4566',
+  };
+
+  // Credentials are cached per client instance, so a client per request means
+  // an STS round-trip per request once the default chain is in play.
+  it('reuses one client per configuration and separates distinct ones', () => {
+    assertEquals(s3Client({ ...base }), s3Client({ ...base }));
+    assertEquals(
+      s3Client({ ...base, S3_ENDPOINT_URL: 'http://localhost:9000' }) ===
+        s3Client({ ...base }),
+      false,
+    );
   });
 });
