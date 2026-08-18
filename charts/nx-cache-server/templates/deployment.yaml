@@ -56,16 +56,23 @@ spec:
                 secretKeyRef:
                   name: {{ include "nx-cache-server.secretName" . }}
                   key: nx-cache-access-token
+            {{- if .Values.secrets.staticAwsCredentials }}
+            {{- /* optional: a Secret without these keys leaves the env unset and the
+            server falls back to the AWS credential chain, instead of holding the
+            pod in CreateContainerConfigError. */}}
             - name: AWS_ACCESS_KEY_ID
               valueFrom:
                 secretKeyRef:
                   name: {{ include "nx-cache-server.secretName" . }}
                   key: aws-access-key-id
+                  optional: true
             - name: AWS_SECRET_ACCESS_KEY
               valueFrom:
                 secretKeyRef:
                   name: {{ include "nx-cache-server.secretName" . }}
                   key: aws-secret-access-key
+                  optional: true
+            {{- end }}
             {{- if .Values.tls.enabled }}
             - name: TLS_CERT_PATH
               value: {{ printf "%s/%s" .Values.tls.mountPath .Values.tls.certKey | quote }}

@@ -32,15 +32,20 @@ The following environment variables are required:
 
 ```env
 AWS_REGION=your-aws-region
-AWS_ACCESS_KEY_ID=your-access-key
-AWS_SECRET_ACCESS_KEY=your-secret-key
 S3_BUCKET_NAME=your-bucket-name
 S3_ENDPOINT_URL=your-s3-endpoint-url
 NX_CACHE_ACCESS_TOKEN=your-secure-token
 PORT=3000  # Optional, defaults to 3000
+AWS_ACCESS_KEY_ID=your-access-key      # Optional, see below
+AWS_SECRET_ACCESS_KEY=your-secret-key  # Optional, see below
 TLS_CERT_PATH=/path/to/tls.crt  # Optional, enables HTTPS (must be set with TLS_KEY_PATH)
 TLS_KEY_PATH=/path/to/tls.key   # Optional, enables HTTPS (must be set with TLS_CERT_PATH)
 ```
+
+`AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` are optional: set both to use
+static credentials, or omit both to use the AWS SDK's default credential chain —
+IRSA on EKS, GKE Workload Identity, IMDS, or a shared config profile. Setting
+only one of the two is a startup error.
 
 See [`.env.example`](.env.example) for a ready-to-copy template.
 
