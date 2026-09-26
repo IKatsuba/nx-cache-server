@@ -35,6 +35,12 @@ app.use(async (c, next) => {
         secretAccessKey: c.env.AWS_SECRET_ACCESS_KEY,
       },
       forcePathStyle: true,
+      // Without these a stalled S3 connection hangs the request forever.
+      // requestTimeout is an idle timeout, so large uploads are unaffected.
+      requestHandler: {
+        connectionTimeout: 5_000,
+        requestTimeout: 30_000,
+      },
     }),
   );
 
