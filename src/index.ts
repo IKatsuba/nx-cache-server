@@ -90,45 +90,66 @@ app.put('/v1/cache/:hash', auth(), async (c) => {
       });
     }
 
-    try {
-      await c.get('s3').send(
-        new HeadObjectCommand({
-          Bucket: c.env.S3_BUCKET_NAME,
-          Key: hash,
-        }),
-      );
+    let conditional = true;
+    let body: Uint8Array | undefined;
+    while (true) {
+      // Keep early duplicate rejection, including before a compatibility retry.
+      // Only the conditional PUT protects against concurrent writers.
+      try {
+        await c.get('s3').send(
+          new HeadObjectCommand({
+            Bucket: c.env.S3_BUCKET_NAME,
+            Key: hash,
+          }),
+        );
+        return c.text('Cannot override an existing record', 409);
+      } catch (error: unknown) {
+        if (!(error instanceof Error && error.name === 'NotFound')) throw error;
+      }
 
+      body ??= new Uint8Array(await c.req.arrayBuffer());
+      try {
+        await c.get('s3').send(
+          new PutObjectCommand({
+            Bucket: c.env.S3_BUCKET_NAME,
+            Key: hash,
+            Body: body,
+            IfNoneMatch: conditional ? '*' : undefined,
+          }),
+        );
+        return c.text('Successfully uploaded', 200);
+      } catch (error: unknown) {
+        const unsupported = error instanceof Error && (
+          error.name === 'NotImplemented' ||
+          (
+            ['InvalidRequest', 'InvalidArgument', 'UnsupportedOperation']
+              .includes(error.name) &&
+            /if[- ]?none[- ]?match|conditional (?:writes?|puts?)/i.test(
+              error.message,
+            ) &&
+            /not (?:supported|implemented)|unsupported/i.test(error.message)
+          )
+        );
+        if (!conditional || !unsupported) throw error;
+        console.warn(
+          'Storage does not support conditional PUT; using non-atomic upload',
+        );
+        conditional = false;
+      }
+    }
+  } catch (error: unknown) {
+    if (error instanceof Error && error.name === 'PreconditionFailed') {
       return new Response('Cannot override an existing record', {
         status: 409,
         headers: { 'Content-Type': 'text/plain' },
       });
-    } catch (error: unknown) {
-      if (error instanceof Error && error.name === 'NotFound') {
-        // Do nothing
-      } else {
-        console.error('Upload error:', error);
-        return new Response('Internal server error', {
-          status: 500,
-          headers: { 'Content-Type': 'text/plain' },
-        });
-      }
     }
-
-    const body = await c.req.arrayBuffer();
-
-    await c.get('s3').send(
-      new PutObjectCommand({
-        Bucket: c.env.S3_BUCKET_NAME,
-        Key: hash,
-        Body: new Uint8Array(body),
-      }),
-    );
-
-    return new Response('Successfully uploaded', {
-      status: 200,
-      headers: { 'Content-Type': 'text/plain' },
-    });
-  } catch (error: unknown) {
+    if (error instanceof Error && error.name === 'ConditionalRequestConflict') {
+      return new Response('Storage write conflict; try again', {
+        status: 503,
+        headers: { 'Content-Type': 'text/plain' },
+      });
+    }
     console.error('Upload error:', error);
     return new Response('Internal server error', {
       status: 500,

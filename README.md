@@ -165,6 +165,38 @@ deno task e2e
 Both suites boot their own emulator and (for e2e) cache server — no separate
 setup is required.
 
+### Upload compatibility
+
+Uploads use `If-None-Match: *` to prevent concurrent overwrites on storage
+services that support conditional writes. Existing objects return HTTP 409;
+transient conditional-write conflicts return HTTP 503.
+
+Storage services without this capability continue using the existing upload
+behavior. The HEAD check is retained, and an explicit unsupported-condition
+response triggers one retry without the condition, with another HEAD check
+before retrying. No additional configuration is needed. Authentication,
+checksum, network, and unrelated storage errors remain errors.
+
+See
+[S3 conditional-write semantics](https://docs.aws.amazon.com/AmazonS3/latest/userguide/conditional-writes.html).
+
+Run the concurrency contract against a disposable bucket on your chosen backend:
+
+```bash
+AWS_REGION=your-region \
+AWS_ACCESS_KEY_ID=your-access-key \
+AWS_SECRET_ACCESS_KEY=your-secret-key \
+S3_BUCKET_NAME=your-test-bucket \
+S3_ENDPOINT_URL=https://your-s3-endpoint \
+deno task test:s3
+```
+
+This optional check races two different artifacts, verifies exactly one
+successful writer, then checks that later writes cannot replace its bytes. It
+measures the backend's atomic-write capability; normal upload compatibility does
+not depend on it passing. Use only a test bucket; the test needs permission to
+write, read, and delete its own objects.
+
 ## Usage with Nx
 
 To use this cache server with your Nx workspace, set the following environment
