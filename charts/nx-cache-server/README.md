@@ -89,8 +89,10 @@ helm install nx-cache oci://ghcr.io/ikatsuba/charts/nx-cache-server \
 | `serviceAccount.name` | `""` | |
 | `serviceAccount.annotations` | `{}` | IRSA / Workload Identity annotations |
 | `probes.liveness.enabled` | `true` | Liveness probe on `/health` |
-| `probes.readiness.enabled` | `true` | Readiness probe on `/health` |
+| `probes.readiness.enabled` | `true` | Readiness probe on `/ready` (checks bucket access) |
+| `probes.readiness.timeoutSeconds` | `3` | Readiness probe timeout; must exceed the 2s bucket check |
 | `config.port` | `3000` | Container `PORT` |
+| `config.failOpen` | `true` | `NX_CACHE_FAIL_OPEN`; `false` returns 503 on storage failures |
 | `config.awsRegion` | `us-east-1` | `AWS_REGION` |
 | `config.s3.bucketName` | `nx-cloud` | `S3_BUCKET_NAME` |
 | `config.s3.endpointUrl` | `""` | **Required.** `S3_ENDPOINT_URL` |

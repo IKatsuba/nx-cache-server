@@ -51,6 +51,8 @@ spec:
               value: {{ .Values.config.s3.bucketName | quote }}
             - name: S3_ENDPOINT_URL
               value: {{ required "config.s3.endpointUrl is required" .Values.config.s3.endpointUrl | quote }}
+            - name: NX_CACHE_FAIL_OPEN
+              value: {{ .Values.config.failOpen | quote }}
             - name: NX_CACHE_ACCESS_TOKEN
               valueFrom:
                 secretKeyRef:
@@ -96,6 +98,7 @@ spec:
               {{- end }}
             initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
             periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
           {{- end }}
           {{- with .Values.resources }}
           resources:

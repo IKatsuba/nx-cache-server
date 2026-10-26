@@ -38,6 +38,7 @@ S3_BUCKET_NAME=your-bucket-name
 S3_ENDPOINT_URL=your-s3-endpoint-url
 NX_CACHE_ACCESS_TOKEN=your-secure-token
 PORT=3000  # Optional, defaults to 3000
+NX_CACHE_FAIL_OPEN=true  # Optional, defaults to true; see "Cache outages"
 TLS_CERT_PATH=/path/to/tls.crt  # Optional, enables HTTPS (must be set with TLS_KEY_PATH)
 TLS_KEY_PATH=/path/to/tls.key   # Optional, enables HTTPS (must be set with TLS_CERT_PATH)
 ```
@@ -174,6 +175,40 @@ variables:
 NX_SELF_HOSTED_REMOTE_CACHE_SERVER=http://your-server:3000
 NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN=your-secure-token
 ```
+
+## Cache outages
+
+Nx 23.3's self-hosted cache client treats only `GET` 404 as a cache miss, and
+only `PUT` 403 and 409 as non-fatal. Every other response, including 5xx and
+connection failures, fails the Nx run. By default (`NX_CACHE_FAIL_OPEN=true`),
+the server degrades when S3 fails so CI keeps building:
+
+- `GET` returns 404, so Nx rebuilds the task. This covers S3 errors, throttling,
+  credential and permission errors, a missing bucket, unreachable storage, and
+  no response headers within 5 seconds.
+- `PUT` returns 403 `Cache storage unavailable; artifact not stored`, so Nx
+  continues without caching the artifact.
+- Each degraded response logs `Storage unavailable during GET|PUT <hash>`.
+- A bad Nx access token still returns 401.
+
+Set `NX_CACHE_FAIL_OPEN=false` to return 503 `Cache storage unavailable`
+instead, failing the Nx run on storage errors. Any other value prevents startup.
+
+`/ready` checks bucket access with `HeadBucket` (2-second timeout) and returns
+503 `Storage unavailable` on failure; details appear only in server logs. It
+requires no token. `/health` remains a process-only liveness check. The Helm
+chart's readiness probe uses `/ready`, so pods that lose storage access leave
+the Service without restarting. `HeadBucket` needs `s3:ListBucket`, which the
+upload duplicate check already requires.
+
+The server cannot protect against these failures:
+
+- A storage failure after a download has started streaming truncates the
+  response, and Nx fails the run.
+- If the cache server itself is unreachable, Nx fails the run. Run more than one
+  replica behind the readiness probe.
+- Nx has no setting that makes cache errors non-fatal. `skipRemoteCache`
+  disables the remote cache entirely.
 
 ## Author
 

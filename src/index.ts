@@ -4,6 +4,7 @@ import { logger } from 'hono/logger';
 
 import {
   GetObjectCommand,
+  HeadBucketCommand,
   HeadObjectCommand,
   PutObjectCommand,
   S3Client,
@@ -18,6 +19,8 @@ export const app = new Hono<{
     AWS_SECRET_ACCESS_KEY: string;
     S3_BUCKET_NAME: string;
     S3_ENDPOINT_URL: string;
+    /** Defaults to true: storage failures degrade instead of failing Nx. */
+    NX_CACHE_FAIL_OPEN?: boolean;
   };
   Variables: {
     s3: S3Client;
@@ -78,6 +81,46 @@ app.get('/health', () => {
   });
 });
 
+// Readiness, unlike /health liveness, proves the bucket is reachable so the
+// orchestrator can route around pods that lost storage access.
+app.get('/ready', async (c) => {
+  try {
+    await c.get('s3').send(
+      new HeadBucketCommand({ Bucket: c.env.S3_BUCKET_NAME }),
+      { abortSignal: AbortSignal.timeout(2_000) },
+    );
+    return c.text('OK', 200);
+  } catch (error: unknown) {
+    console.error('Readiness check failed; storage unavailable:', error);
+    return c.text('Storage unavailable', 503);
+  }
+});
+
+// Nx treats only GET 404 as a miss and only PUT 403/409 as non-fatal; any
+// other failure fails the Nx run. By default (fail-open) storage problems
+// therefore become a GET miss or a PUT 403. Fail-closed returns 503 instead.
+// Every degraded response is logged so outages stay visible to operators.
+const storageFailure = (
+  method: 'GET' | 'PUT',
+  hash: string,
+  error: unknown,
+  failOpen = true,
+) => {
+  console.error(`Storage unavailable during ${method} ${hash}:`, error);
+  if (!failOpen) {
+    return new Response('Cache storage unavailable', {
+      status: 503,
+      headers: { 'Content-Type': 'text/plain' },
+    });
+  }
+  return method === 'GET'
+    ? cacheMiss()
+    : new Response('Cache storage unavailable; artifact not stored', {
+      status: 403,
+      headers: { 'Content-Type': 'text/plain' },
+    });
+};
+
 app.put('/v1/cache/:hash', auth(), async (c) => {
   try {
     const hash = c.req.param('hash');
@@ -103,26 +146,24 @@ app.put('/v1/cache/:hash', auth(), async (c) => {
         headers: { 'Content-Type': 'text/plain' },
       });
     } catch (error: unknown) {
-      if (error instanceof Error && error.name === 'NotFound') {
-        // Do nothing
-      } else {
-        console.error('Upload error:', error);
-        return new Response('Internal server error', {
-          status: 500,
-          headers: { 'Content-Type': 'text/plain' },
-        });
+      if (!(error instanceof Error && error.name === 'NotFound')) {
+        return storageFailure('PUT', hash, error, c.env.NX_CACHE_FAIL_OPEN);
       }
     }
 
     const body = await c.req.arrayBuffer();
 
-    await c.get('s3').send(
-      new PutObjectCommand({
-        Bucket: c.env.S3_BUCKET_NAME,
-        Key: hash,
-        Body: new Uint8Array(body),
-      }),
-    );
+    try {
+      await c.get('s3').send(
+        new PutObjectCommand({
+          Bucket: c.env.S3_BUCKET_NAME,
+          Key: hash,
+          Body: new Uint8Array(body),
+        }),
+      );
+    } catch (error: unknown) {
+      return storageFailure('PUT', hash, error, c.env.NX_CACHE_FAIL_OPEN);
+    }
 
     return new Response('Successfully uploaded', {
       status: 200,
@@ -137,37 +178,55 @@ app.put('/v1/cache/:hash', auth(), async (c) => {
   }
 });
 
+const STORAGE_HEADERS_TIMEOUT_MS = 5_000;
+
+function cacheMiss() {
+  return new Response('The record was not found', {
+    status: 404,
+    headers: { 'Content-Type': 'text/plain' },
+  });
+}
+
 app.get('/v1/cache/:hash', auth(), async (c) => {
+  const hash = c.req.param('hash');
+  const headersTimeout = new AbortController();
+  const timer = setTimeout(
+    () => headersTimeout.abort(),
+    STORAGE_HEADERS_TIMEOUT_MS,
+  );
   try {
-    const hash = c.req.param('hash');
+    const url = await getSignedUrl(
+      c.get('s3'),
+      new GetObjectCommand({ Bucket: c.env.S3_BUCKET_NAME, Key: hash }),
+      { expiresIn: 18000 },
+    );
 
-    const command = new GetObjectCommand({
-      Bucket: c.env.S3_BUCKET_NAME,
-      Key: hash,
-    });
+    const response = await fetch(url, { signal: headersTimeout.signal });
+    // Only the wait for headers is bounded; the body may stream for longer.
+    clearTimeout(timer);
 
-    const url = await getSignedUrl(c.get('s3'), command, {
-      expiresIn: 18000,
-    });
-
-    const response = await fetch(url);
+    if (response.status === 404) {
+      // S3 also answers 404 for a missing bucket; only NoSuchKey is a miss.
+      const errorBody = await response.text();
+      if (errorBody.includes('<Code>NoSuchBucket</Code>')) {
+        return storageFailure(
+          'GET',
+          hash,
+          'S3 bucket not found',
+          c.env.NX_CACHE_FAIL_OPEN,
+        );
+      }
+      return cacheMiss();
+    }
 
     if (!response.ok) {
-      console.error('Download error:', response.statusText);
-
       await response.body?.cancel();
-
-      if (response.status === 404) {
-        return new Response('The record was not found', {
-          status: 404,
-          headers: { 'Content-Type': 'text/plain' },
-        });
-      }
-
-      return new Response('Access forbidden', {
-        status: 403,
-        headers: { 'Content-Type': 'text/plain' },
-      });
+      return storageFailure(
+        'GET',
+        hash,
+        `S3 returned ${response.status}`,
+        c.env.NX_CACHE_FAIL_OPEN,
+      );
     }
 
     const headers = new Headers({
@@ -183,22 +242,19 @@ app.get('/v1/cache/:hash', auth(), async (c) => {
       headers,
     });
   } catch (error: unknown) {
-    if (error instanceof Error && error.name === 'NoSuchKey') {
-      return new Response('The record was not found', {
-        status: 404,
-        headers: { 'Content-Type': 'text/plain' },
-      });
-    }
-    console.error('Download error:', error);
-    return new Response('Internal server error', {
-      status: 500,
-      headers: { 'Content-Type': 'text/plain' },
-    });
+    clearTimeout(timer);
+    return storageFailure('GET', hash, error, c.env.NX_CACHE_FAIL_OPEN);
   }
 });
 
 if (import.meta.main) {
   const port = parseInt(Deno.env.get('PORT') || '3000');
+
+  const failOpenSetting = Deno.env.get('NX_CACHE_FAIL_OPEN') ?? 'true';
+  if (failOpenSetting !== 'true' && failOpenSetting !== 'false') {
+    console.error('NX_CACHE_FAIL_OPEN must be "true" or "false"');
+    Deno.exit(1);
+  }
 
   const certPath = Deno.env.get('TLS_CERT_PATH');
   const keyPath = Deno.env.get('TLS_KEY_PATH');
@@ -237,5 +293,6 @@ if (import.meta.main) {
       AWS_SECRET_ACCESS_KEY: Deno.env.get('AWS_SECRET_ACCESS_KEY'),
       S3_BUCKET_NAME: Deno.env.get('S3_BUCKET_NAME') || 'nx-cloud',
       S3_ENDPOINT_URL: Deno.env.get('S3_ENDPOINT_URL'),
+      NX_CACHE_FAIL_OPEN: failOpenSetting === 'true',
     }));
 }

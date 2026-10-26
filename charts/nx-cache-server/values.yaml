@@ -37,15 +37,22 @@ probes:
     path: /health
     initialDelaySeconds: 5
     periodSeconds: 10
+  # /ready checks bucket access (2s internal timeout); unready pods leave the
+  # Service without being restarted. Liveness stays on /health.
   readiness:
     enabled: true
-    path: /health
+    path: /ready
     initialDelaySeconds: 2
     periodSeconds: 5
+    timeoutSeconds: 3
 
 # Non-secret configuration mapped to env vars in the container.
 config:
   port: 3000
+  # When storage fails, degrade to a cache miss (GET 404) or non-fatal
+  # "not stored" (PUT 403) so Nx keeps building. Set false to return 503
+  # and fail the Nx run instead.
+  failOpen: true
   awsRegion: us-east-1
   s3:
     bucketName: nx-cloud
