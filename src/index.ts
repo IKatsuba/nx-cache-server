@@ -1,3 +1,4 @@
+import { Readable } from 'node:stream';
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { logger } from 'hono/logger';
@@ -35,6 +36,8 @@ app.use(async (c, next) => {
         secretAccessKey: c.env.AWS_SECRET_ACCESS_KEY,
       },
       forcePathStyle: true,
+      // Stream payloads directly instead of wrapping them in aws-chunked checksums.
+      requestChecksumCalculation: 'WHEN_REQUIRED',
       // Without these a stalled S3 connection hangs the request forever.
       // requestTimeout is an idle timeout, so large uploads are unaffected.
       requestHandler: {
@@ -96,6 +99,7 @@ app.put('/v1/cache/:hash', auth(), async (c) => {
           Bucket: c.env.S3_BUCKET_NAME,
           Key: hash,
         }),
+        { abortSignal: c.req.raw.signal },
       );
 
       return new Response('Cannot override an existing record', {
@@ -114,15 +118,35 @@ app.put('/v1/cache/:hash', auth(), async (c) => {
       }
     }
 
-    const body = await c.req.arrayBuffer();
-
-    await c.get('s3').send(
-      new PutObjectCommand({
-        Bucket: c.env.S3_BUCKET_NAME,
-        Key: hash,
-        Body: new Uint8Array(body),
+    const body = Readable.fromWeb(
+      c.req.raw.body ?? new ReadableStream({
+        start(controller) {
+          controller.close();
+        },
       }),
     );
+    const streamFailure = new AbortController();
+    body.once('error', (error) => streamFailure.abort(error));
+    try {
+      await c.get('s3').send(
+        new PutObjectCommand({
+          Bucket: c.env.S3_BUCKET_NAME,
+          Key: hash,
+          Body: body,
+          ContentLength: Number(contentLength),
+        }),
+        {
+          abortSignal: AbortSignal.any([
+            c.req.raw.signal,
+            streamFailure.signal,
+          ]),
+        },
+      );
+    } catch (error) {
+      throw body.errored ?? error;
+    } finally {
+      body.destroy();
+    }
 
     return new Response('Successfully uploaded', {
       status: 200,

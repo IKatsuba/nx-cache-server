@@ -155,6 +155,24 @@ For local development against the emulator above, use:
 deno task dev
 ```
 
+### Streaming uploads
+
+Upload bodies stream directly to S3 with backpressure; the server does not
+buffer the complete artifact in memory or spool it to disk. `Content-Length`
+remains required and is forwarded to S3. Uploads use a single S3 PUT, so the
+storage provider's single-PUT size limits still apply.
+
+A client disconnect or body-read error aborts the storage request. Storage
+errors cancel the unfinished incoming stream. Streamed bodies are one-shot: the
+server does not buffer them to replay failed uploads; a retry requires a fresh
+client request.
+
+Optional SDK `aws-chunked` checksum wrapping is disabled so the upload uses an
+ordinary length-delimited S3 request. Memory sizing should account for
+concurrent stream/socket buffers and runtime overhead, rather than full artifact
+sizes. No new artifact-size cap, upload-slot limit, or configuration is
+introduced.
+
 ## Testing
 
 ```bash

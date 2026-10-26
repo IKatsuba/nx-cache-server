@@ -100,10 +100,11 @@ describe('Cache server routes', () => {
 
   it('GET /v1/cache/{hash} - Success', async () => {
     const hash = crypto.randomUUID();
+    const payload = Deno.readFileSync('./src/index.ts');
 
     await makeRequest('PUT', `/v1/cache/${hash}`, {
-      'Content-Length': '10',
-    }, Deno.readFileSync('./src/index.ts'));
+      'Content-Length': String(payload.byteLength),
+    }, payload);
 
     const response = await makeRequest('GET', `/v1/cache/${hash}`);
 
