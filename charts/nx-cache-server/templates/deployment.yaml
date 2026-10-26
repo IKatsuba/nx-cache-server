@@ -56,6 +56,12 @@ spec:
                 secretKeyRef:
                   name: {{ include "nx-cache-server.secretName" . }}
                   key: nx-cache-access-token
+            - name: NX_CACHE_READ_ONLY_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nx-cache-server.secretName" . }}
+                  key: nx-cache-read-only-token
+                  optional: true
             - name: AWS_ACCESS_KEY_ID
               valueFrom:
                 secretKeyRef:

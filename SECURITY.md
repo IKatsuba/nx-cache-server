@@ -41,3 +41,15 @@ release workflow.
 
 Out of scope: vulnerabilities in Nx itself, in your S3 provider, or in
 deployments that expose the server without `NX_CACHE_ACCESS_TOKEN` set.
+
+## Cache credential trust
+
+Keep `NX_CACHE_ACCESS_TOKEN` restricted to trusted builds. Jobs executing
+untrusted PR code must never receive it, including through privileged workflow
+arrangements. `NX_CACHE_READ_ONLY_TOKEN` permits downloads but rejects uploads;
+omit credentials entirely when those jobs must not read cached outputs.
+
+Require HTTPS for clients, keep S3 credentials server-side, and use distinct
+cache tokens. TLS does not turn untrusted writers into trusted writers.
+Read-only credentials prevent new writes; they do not remove artifacts
+previously written by a compromised trusted credential.

@@ -61,6 +61,8 @@ config:
 secrets:
   existingSecret: ""
   nxCacheAccessToken: ""
+  # Optional; must differ from the trusted access token.
+  nxCacheReadOnlyToken: ""
   awsAccessKeyId: ""
   awsSecretAccessKey: ""
 

@@ -37,6 +37,7 @@ AWS_SECRET_ACCESS_KEY=your-secret-key
 S3_BUCKET_NAME=your-bucket-name
 S3_ENDPOINT_URL=your-s3-endpoint-url
 NX_CACHE_ACCESS_TOKEN=your-secure-token
+NX_CACHE_READ_ONLY_TOKEN=your-read-only-token  # Optional; must differ from the trusted token
 PORT=3000  # Optional, defaults to 3000
 TLS_CERT_PATH=/path/to/tls.crt  # Optional, enables HTTPS (must be set with TLS_KEY_PATH)
 TLS_KEY_PATH=/path/to/tls.key   # Optional, enables HTTPS (must be set with TLS_CERT_PATH)
@@ -174,6 +175,28 @@ variables:
 NX_SELF_HOSTED_REMOTE_CACHE_SERVER=http://your-server:3000
 NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN=your-secure-token
 ```
+
+### Trusted writers and read-only clients
+
+`NX_CACHE_ACCESS_TOKEN` remains the trusted read/write credential.
+`NX_CACHE_READ_ONLY_TOKEN` optionally grants downloads only. Both credentials
+use the same Nx client variable, `NX_SELF_HOSTED_REMOTE_CACHE_ACCESS_TOKEN`;
+choose its value according to the job's trust level.
+
+Give the trusted credential only to protected builds that do not execute
+untrusted PR code. PR jobs may receive the read-only credential, or no
+credential if cache contents must remain private. A read-only upload returns
+HTTP 403; missing or invalid credentials return HTTP 401. Health checks remain
+unauthenticated.
+
+Tokens must be nonempty, contain no whitespace, and be distinct. Invalid token
+configuration prevents startup. Omit the optional read-only setting rather than
+setting it to an empty string. Use HTTPS between clients and the server, whether
+TLS terminates here or at a trusted proxy.
+
+For Helm, set `secrets.nxCacheReadOnlyToken`, or add the optional
+`nx-cache-read-only-token` key to the existing Secret. Existing deployments
+without a read-only credential continue to work.
 
 ## Author
 

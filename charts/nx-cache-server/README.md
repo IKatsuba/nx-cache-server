@@ -35,6 +35,14 @@ helm install nx-cache oci://ghcr.io/ikatsuba/charts/nx-cache-server \
   --set config.s3.endpointUrl=https://s3.amazonaws.com
 ```
 
+To enable read-only clients, optionally add `nx-cache-read-only-token` to that
+Secret, or set `secrets.nxCacheReadOnlyToken` when the chart creates the Secret.
+It must be nonempty and different from `nx-cache-access-token`. The existing
+access token retains read/write permission; the read-only credential permits
+GET but returns 403 for PUT. Give PR jobs only the read-only credential (or none
+if they must not read cached outputs).
+
+
 ## IRSA / Workload Identity (no static AWS keys)
 
 Annotate the ServiceAccount so the pod uses cloud-native credentials. With
@@ -96,6 +104,7 @@ helm install nx-cache oci://ghcr.io/ikatsuba/charts/nx-cache-server \
 | `config.s3.endpointUrl` | `""` | **Required.** `S3_ENDPOINT_URL` |
 | `secrets.existingSecret` | `""` | If set, skip Secret creation and use this one |
 | `secrets.nxCacheAccessToken` | `""` | Required if `existingSecret` is empty |
+| `secrets.nxCacheReadOnlyToken` | `""` | Optional, distinct download-only credential |
 | `secrets.awsAccessKeyId` | `""` | Required if `existingSecret` is empty |
 | `secrets.awsSecretAccessKey` | `""` | Required if `existingSecret` is empty |
 | `tls.enabled` | `false` | Serve over HTTPS using a mounted cert/key |
@@ -115,3 +124,5 @@ helm install nx-cache oci://ghcr.io/ikatsuba/charts/nx-cache-server \
 
 When using `secrets.existingSecret`, the Secret must contain the keys
 `nx-cache-access-token`, `aws-access-key-id`, `aws-secret-access-key`.
+The optional `nx-cache-read-only-token` key enables read-only clients; omit it
+when not needed rather than storing an empty value.

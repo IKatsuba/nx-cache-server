@@ -13,6 +13,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 export const app = new Hono<{
   Bindings: {
     NX_CACHE_ACCESS_TOKEN: string;
+    NX_CACHE_READ_ONLY_TOKEN?: string;
     AWS_REGION: string;
     AWS_ACCESS_KEY_ID: string;
     AWS_SECRET_ACCESS_KEY: string;
@@ -47,23 +48,50 @@ app.use(async (c, next) => {
   await next();
 });
 
-const auth = () =>
+function validateCacheTokens(
+  accessToken: unknown,
+  readOnlyToken: unknown,
+): void {
+  if (typeof accessToken !== 'string' || !/^\S+$/.test(accessToken)) {
+    throw new Error(
+      'NX_CACHE_ACCESS_TOKEN must be a nonempty token without whitespace',
+    );
+  }
+  if (readOnlyToken !== undefined) {
+    if (typeof readOnlyToken !== 'string' || !/^\S+$/.test(readOnlyToken)) {
+      throw new Error(
+        'NX_CACHE_READ_ONLY_TOKEN must be a nonempty token without whitespace',
+      );
+    }
+    if (readOnlyToken === accessToken) {
+      throw new Error('Read-only and trusted cache tokens must be different');
+    }
+  }
+}
+
+const auth = (permission: 'read' | 'write') =>
   createMiddleware(async (c, next) => {
-    const authHeader = c.req.header('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    try {
+      validateCacheTokens(
+        c.env.NX_CACHE_ACCESS_TOKEN,
+        c.env.NX_CACHE_READ_ONLY_TOKEN,
+      );
+    } catch {
+      return c.text('Invalid server authentication configuration', 500);
+    }
+    const token = c.req.header('Authorization')?.match(/^Bearer (\S+)$/)?.[1];
+    if (
+      !token ||
+      (token !== c.env.NX_CACHE_ACCESS_TOKEN &&
+        token !== c.env.NX_CACHE_READ_ONLY_TOKEN)
+    ) {
       return new Response('Missing or invalid authentication token', {
         status: 401,
         headers: { 'Content-Type': 'text/plain' },
       });
     }
-
-    const token = authHeader.split(' ')[1];
-
-    if (token !== c.env.NX_CACHE_ACCESS_TOKEN) {
-      return new Response('Missing or invalid authentication token', {
-        status: 401,
-        headers: { 'Content-Type': 'text/plain' },
-      });
+    if (permission === 'write' && token !== c.env.NX_CACHE_ACCESS_TOKEN) {
+      return c.text('Read-only credentials cannot upload artifacts', 403);
     }
 
     await next();
@@ -78,7 +106,7 @@ app.get('/health', () => {
   });
 });
 
-app.put('/v1/cache/:hash', auth(), async (c) => {
+app.put('/v1/cache/:hash', auth('write'), async (c) => {
   try {
     const hash = c.req.param('hash');
 
@@ -137,7 +165,7 @@ app.put('/v1/cache/:hash', auth(), async (c) => {
   }
 });
 
-app.get('/v1/cache/:hash', auth(), async (c) => {
+app.get('/v1/cache/:hash', auth('read'), async (c) => {
   try {
     const hash = c.req.param('hash');
 
@@ -198,6 +226,15 @@ app.get('/v1/cache/:hash', auth(), async (c) => {
 });
 
 if (import.meta.main) {
+  const accessToken = Deno.env.get('NX_CACHE_ACCESS_TOKEN');
+  const readOnlyToken = Deno.env.get('NX_CACHE_READ_ONLY_TOKEN');
+  try {
+    validateCacheTokens(accessToken, readOnlyToken);
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : error);
+    Deno.exit(1);
+  }
+
   const port = parseInt(Deno.env.get('PORT') || '3000');
 
   const certPath = Deno.env.get('TLS_CERT_PATH');
@@ -231,7 +268,8 @@ if (import.meta.main) {
 
   Deno.serve({ port, ...tls }, (req) =>
     app.fetch(req, {
-      NX_CACHE_ACCESS_TOKEN: Deno.env.get('NX_CACHE_ACCESS_TOKEN'),
+      NX_CACHE_ACCESS_TOKEN: accessToken,
+      NX_CACHE_READ_ONLY_TOKEN: readOnlyToken,
       AWS_REGION: Deno.env.get('AWS_REGION') || 'us-east-1',
       AWS_ACCESS_KEY_ID: Deno.env.get('AWS_ACCESS_KEY_ID'),
       AWS_SECRET_ACCESS_KEY: Deno.env.get('AWS_SECRET_ACCESS_KEY'),
